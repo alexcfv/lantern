@@ -24,9 +24,15 @@ class AnalyzeResponse(BaseModel):
     reason: str | None = None
 
 
+class AnalysisResult(BaseModel):
+    prediction: AnalyzeResponse
+    goplus_result: dict[str, str] = Field(default_factory=dict)
+
+
 class RedFlagResult(BaseModel):
     flagged: bool
     flags: list[str] = Field(default_factory=list)
+    result: dict[str, str] = Field(default_factory=dict)
 
 
 class AskRequest(AnalyzeRequest):
@@ -50,3 +56,4 @@ class AskResponse(BaseModel):
     prediction: AnalyzeResponse
     agents: list[AgentResponse]
     evidence: list[EvidenceItem] = Field(default_factory=list)
+    goplus_result: dict[str, str] = Field(default_factory=dict)

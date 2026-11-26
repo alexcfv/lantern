@@ -5,51 +5,23 @@ from flask import Flask, jsonify, request
 from pydantic import ValidationError
 
 from eth_fraud.integrations.agents import AgentsClient
-from eth_fraud.schemas import (
-    AgentResponse,
-    AnalyzeRequest,
-    AnalyzeResponse,
-    AskRequest,
-    AskResponse,
-    EvidenceItem,
-)
+from eth_fraud.schemas import AnalyzeRequest, AskRequest, AskResponse
 from eth_fraud.services.analyzer import Analyzer
 
 logger = logging.getLogger(__name__)
 
-
-def build_model_evidence(prediction: AnalyzeResponse) -> list[EvidenceItem]:
-    detail = f"model: {prediction.model}"
-    items = [
-        EvidenceItem(
-            id="model.verdict",
-            claim=f"Verdict: {prediction.verdict}.",
-            source="Model",
-            detail=detail,
-        )
-    ]
-    if prediction.fraud_probability is not None:
-        items.append(
-            EvidenceItem(
-                id="model.fraud_probability",
-                claim=f"Fraud probability: {prediction.fraud_probability}.",
-                source="Model",
-                detail=detail,
-            )
-        )
-    items.append(
-        EvidenceItem(
-            id="model.red_flags",
-            claim=(
-                f"Red flags: {', '.join(prediction.red_flags)}."
-                if prediction.red_flags
-                else "No red flags were detected."
-            ),
-            source="Model",
-            detail=prediction.reason or detail,
-        )
-    )
-    return items
+INTERNAL_AGENT_QUESTION = (
+    "Provide a comprehensive fraud-risk assessment of this exact wallet. "
+    "Use only the supplied ML prediction, the GoPlus security result, and "
+    "Etherscan facts you retrieve for this address. Explain which signals "
+    "support the verdict, which contradict it or are missing, and what the "
+    "transaction history, counterparties and token approvals add. Separate "
+    "confirmed facts from assumptions, cite only evidence IDs you actually "
+    "used, state limitations and uncertainty, do not recompute or override "
+    "the ML verdict. Always call ask_tx_analyst for this wallet before answering. "
+    "Answer in English with sections: Summary, Supporting "
+    "evidence, Contradicting or missing evidence, Next checks."
+)
 
 
 def create_app(analyzer: Analyzer, agents_client: AgentsClient) -> Flask:
@@ -70,7 +42,8 @@ def create_app(analyzer: Analyzer, agents_client: AgentsClient) -> Flask:
                 "details": exc.errors(include_input=False, include_context=False, include_url=False),
             }), 400
 
-        return jsonify(analyzer.analyze(features).model_dump()), 200
+        result = analyzer.analyze(features)
+        return jsonify(result.prediction.model_dump()), 200
 
     @app.post("/ask")
     def ask() -> tuple:
@@ -86,18 +59,48 @@ def create_app(analyzer: Analyzer, agents_client: AgentsClient) -> Flask:
                 "details": exc.errors(include_input=False, include_context=False, include_url=False),
             }), 400
 
-        prediction = analyzer.analyze(features)
+        analysis = analyzer.analyze(features)
         try:
-            result = agents_client.ask(features, prediction)
+            result = agents_client.ask(
+                features,
+                analysis.prediction,
+                features.user_request,
+                analysis.goplus_result,
+            )
         except (httpx.HTTPError, ValueError) as exc:
             logger.warning("agents request failed for %s: %s", features.address, exc)
-            result = AskResponse(
-                address=features.address,
-                prediction=prediction,
-                agents=[AgentResponse(agent="system", content="Агентный анализ недоступен")],
-                evidence=build_model_evidence(prediction),
-            )
+            return jsonify({"error": "agents unavailable", "details": str(exc)}), 502
 
+        result.goplus_result = analysis.goplus_result
+        return jsonify(result.model_dump(mode="json")), 200
+
+    @app.post("/analyze/agents")
+    def analyze_agents() -> tuple:
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "expected a JSON object"}), 400
+
+        try:
+            features = AnalyzeRequest.model_validate(payload)
+        except ValidationError as exc:
+            return jsonify({
+                "error": "invalid request",
+                "details": exc.errors(include_input=False, include_context=False, include_url=False),
+            }), 400
+
+        analysis = analyzer.analyze(features)
+        try:
+            result = agents_client.ask(
+                features,
+                analysis.prediction,
+                INTERNAL_AGENT_QUESTION,
+                analysis.goplus_result,
+            )
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.warning("agents request failed for %s: %s", features.address, exc)
+            return jsonify({"error": "agents unavailable", "details": str(exc)}), 502
+
+        result.goplus_result = analysis.goplus_result
         return jsonify(result.model_dump(mode="json")), 200
 
     return app

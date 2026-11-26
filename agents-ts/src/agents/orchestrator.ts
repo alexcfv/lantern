@@ -23,6 +23,7 @@ type RequestPayload = {
   address: string;
   question: string;
   prediction: AskRequest['prediction'];
+  goplus_result: AskRequest['goplus_result'];
 };
 
 type EnrichmentRequestedPayload = {
@@ -120,6 +121,30 @@ function buildModelEvidence(prediction: AskRequest['prediction']): EvidenceItem[
   return items;
 }
 
+function buildGoPlusEvidence(goplusResult: AskRequest['goplus_result']): EvidenceItem[] {
+  const entries = Object.entries(goplusResult);
+  const items: EvidenceItem[] = entries
+    .filter(([, value]) => value === '1')
+    .map(([field, value]) => ({
+      id: `goplus.${field}`,
+      claim: `GoPlus ${field}: ${value}.`,
+      source: 'GoPlus',
+      detail: 'Raw address security result from GoPlus.',
+    }));
+  const zeroFields = entries
+    .filter(([, value]) => value === '0')
+    .map(([field]) => field);
+  if (zeroFields.length) {
+    items.push({
+      id: 'goplus.zero_checks',
+      claim: `No GoPlus flags for these checks: ${zeroFields.join(', ')}.`,
+      source: 'GoPlus',
+      detail: 'Raw address security result from GoPlus.',
+    });
+  }
+  return items;
+}
+
 class ForRequest extends SituationSpecification {
   constructor(
     private readonly type: string,
@@ -180,6 +205,8 @@ export async function runAnalysis(
   const requestId = randomUUID();
 
   const modelEvidence = buildModelEvidence(request.prediction);
+  const goplusEvidence = buildGoPlusEvidence(request.goplus_result);
+  const staticEvidence = [...modelEvidence, ...goplusEvidence];
   let etherscanEvidence: EvidenceItem[] = [];
   let responderId = '';
   let analystFacts = 'No additional facts were requested.';
@@ -258,11 +285,12 @@ export async function runAnalysis(
           responderId = participant.getId();
           try {
             const message = [
-              `User question: ${request.user_request}`,
+              `Analysis task: ${request.user_request}`,
               `Address: ${request.address}`,
               `ML verdict (do not recompute): ${JSON.stringify(request.prediction)}`,
-              `Evidence already available (cite only these IDs): ${JSON.stringify(modelEvidence)}`,
-              'Answer in English. Only answer questions about the provided wallet and the supplied ML verdict. If the question is unrelated, asks about other wallets, or asks for a global list, say you can only analyze the provided wallet. If the question needs wallet history, counterparties, or tokens, call ask_tx_analyst; use only the evidence_ids it returns and do not invent facts or use any data outside the provided evidence and TxAnalyst.',
+              `GoPlus result: ${JSON.stringify(request.goplus_result)}`,
+              `Evidence already available (cite only these IDs): ${JSON.stringify(staticEvidence)}`,
+              'Answer in English. Only answer questions about the provided wallet, the supplied ML verdict, and the supplied GoPlus result. If the question is unrelated, asks about other wallets, or asks for a global list, say you can only analyze the provided wallet. If the question needs wallet history, counterparties, or tokens, call ask_tx_analyst; use only the evidence_ids it returns and do not invent facts or use any data outside the provided evidence and TxAnalyst.',
             ].join('\n');
 
             runLoop(responderId, message, {
@@ -322,7 +350,7 @@ export async function runAnalysis(
     name: 'Responder',
     capabilities: ['inference'],
     instruction:
-      'Answer the user in English using only the ML verdict and, when needed, facts about the provided wallet from TxAnalyst. Do not answer questions about other wallets or global lists. Never recompute the verdict.',
+      'Answer in English using only the ML verdict, the GoPlus result, and, when needed, facts about the provided wallet from TxAnalyst. Do not answer questions about other wallets or global lists. Never recompute the verdict.',
     tools: [askTxAnalystTool],
     handlers: responderHandlers,
   });
@@ -335,8 +363,9 @@ export async function runAnalysis(
           try {
             const message = [
               `Address: ${request.address}`,
-              `User question: ${request.user_request}`,
+              `Analysis task: ${request.user_request}`,
               `ML verdict: ${JSON.stringify(request.prediction)}`,
+              `GoPlus result: ${JSON.stringify(request.goplus_result)}`,
               'Use get_transaction_history only for the address provided above and only when the question requires its real transaction history. Answer in English. Return a concise summary of this wallet only, never a verdict. Put only the IDs of evidence actually used in evidence_ids; leave it empty if you did not call a tool. If the question is unrelated or asks about other addresses or global lists, say you can only analyze the provided wallet.',
             ].join('\n');
 
@@ -433,7 +462,8 @@ export async function runAnalysis(
                 { agent: 'TxAnalyst', content: analystFacts },
                 { agent: 'Responder', content },
               ],
-              evidence: [...modelEvidence, ...etherscanEvidence],
+              evidence: [...staticEvidence, ...etherscanEvidence],
+              goplus_result: request.goplus_result,
             };
             const payload: AnalysisCompletedPayload = { requestId, response: result };
             sendEvent(
@@ -486,6 +516,7 @@ export async function runAnalysis(
     address: request.address,
     question: request.user_request,
     prediction: request.prediction,
+    goplus_result: request.goplus_result,
   };
   sendEvent(
     SemanticEvent.create('analysis.requested', gateway.getId(), requestPayload),

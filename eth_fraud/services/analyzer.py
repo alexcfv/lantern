@@ -3,7 +3,7 @@ from datetime import date
 from eth_fraud.config import Settings
 from eth_fraud.integrations.goplus import GoPlusClient
 from eth_fraud.ml.predictor import Predictor, StubPredictor
-from eth_fraud.schemas import AnalyzeRequest, AnalyzeResponse
+from eth_fraud.schemas import AnalysisResult, AnalyzeRequest, AnalyzeResponse
 from eth_fraud.services.red_flags import GoPlusRedFlagChecker, RedFlagChecker
 
 
@@ -12,10 +12,10 @@ class Analyzer:
         self._checker = checker
         self._predictor = predictor
 
-    def analyze(self, features: AnalyzeRequest) -> AnalyzeResponse:
+    def analyze(self, features: AnalyzeRequest) -> AnalysisResult:
         red_flag = self._checker.check(features.address)
         if red_flag.flagged:
-            return AnalyzeResponse(
+            prediction = AnalyzeResponse(
                 address=features.address,
                 verdict="scam",
                 model="goplus",
@@ -23,8 +23,10 @@ class Analyzer:
                 red_flags=red_flag.flags,
                 reason=f"GoPlus: {', '.join(red_flag.flags)}",
             )
+        else:
+            prediction = self._predictor.predict(features)
 
-        return self._predictor.predict(features)
+        return AnalysisResult(prediction=prediction, goplus_result=red_flag.result)
 
 
 def build_analyzer(settings: Settings) -> Analyzer:
