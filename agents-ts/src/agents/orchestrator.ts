@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import {
   createAgent,
   createHuman,
@@ -9,11 +10,13 @@ import {
   supportedModels,
   type SituationContext,
   type SituationHandler,
+  type Tool,
 } from '@mozaik-ai/core';
 import { loadSettings } from '../config.js';
 import { createTransactionHistoryTool, EtherscanClient } from '../integrations/etherscan.js';
 import { patchGeminiFunctionCalling } from './gemini-tool-compat.js';
-import type { AgentResponse, AskRequest, AskResponse } from '../schemas.js';
+import { responderAnswerSchema } from '../schemas.js';
+import type { AskRequest, AskResponse } from '../schemas.js';
 
 type RequestPayload = {
   requestId: string;
@@ -60,6 +63,15 @@ class FromParticipant extends SituationSpecification {
 function readModelAnswer(payload: unknown): string {
   const answer = (payload as { answer?: { content?: { text?: unknown } } }).answer;
   return typeof answer?.content?.text === 'string' ? answer.content.text : JSON.stringify(payload);
+}
+
+function readResponderAnswer(payload: unknown): string {
+  const text = readModelAnswer(payload);
+  try {
+    return responderAnswerSchema.parse(JSON.parse(text)).answer;
+  } catch {
+    return text;
+  }
 }
 
 class ForRequest extends SituationSpecification {
@@ -121,6 +133,9 @@ export async function runAnalysis(
 ): Promise<AskResponse> {
   const requestId = randomUUID();
 
+  let responderId = '';
+  let analystFacts = 'Дополнительные факты не запрошены.';
+
   let resolveAnswer!: (answer: AskResponse) => void;
   let rejectAnswer!: (error: Error) => void;
   const answer = new Promise<AskResponse>((resolve, reject) => {
@@ -128,47 +143,121 @@ export async function runAnalysis(
     rejectAnswer = reject;
   });
 
+  let resolveEnrichment!: (facts: string) => void;
+  let rejectEnrichment!: (error: Error) => void;
+  const enrichment = new Promise<string>((resolve, reject) => {
+    resolveEnrichment = resolve;
+    rejectEnrichment = reject;
+  });
+  enrichment.catch(() => undefined);
+
   const gateway = createHuman({ name: 'Gateway', capabilities: [], handlers: [] });
+
+  const askTxAnalystTool: Tool = {
+    type: 'function',
+    name: 'ask_tx_analyst',
+    description:
+      'Ask TxAnalyst for verified external facts or transaction history for this address. Use it when the user asks about activity, history, counterparties, tokens, or when provided facts are insufficient. Never invent facts.',
+    parameters: {
+      type: 'object',
+      properties: {
+        question: {
+          type: 'string',
+          description: 'A specific question for TxAnalyst.',
+        },
+      },
+      required: ['question'],
+      additionalProperties: false,
+    },
+    strict: true,
+    invoke: async (args: { question?: unknown }) => {
+      const question = z.string().min(1).parse(args?.question ?? request.user_request);
+      const payload: EnrichmentRequestedPayload = {
+        requestId,
+        address: request.address,
+        question,
+      };
+      sendEvent(
+        SemanticEvent.create('enrichment.requested', responderId, payload),
+        responderId,
+      );
+
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('tx analyst timeout')),
+          Math.max(1000, timeoutMs - 1000),
+        );
+      });
+      try {
+        return await Promise.race([enrichment, timeout]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    },
+  };
 
   const responderHandlers: SituationHandler[] = [
     {
       specification: new ForRequest('analysis.requested', requestId),
       processor: {
         apply({ participant }) {
-          const payload: EnrichmentRequestedPayload = {
-            requestId,
-            address: request.address,
-            question: request.user_request,
-          };
-          sendEvent(
-            SemanticEvent.create('enrichment.requested', participant.getId(), payload),
-            participant.getId(),
-          );
+          responderId = participant.getId();
+          try {
+            const message = [
+              `User question: ${request.user_request}`,
+              `Address: ${request.address}`,
+              `ML verdict (do not recompute): ${JSON.stringify(request.prediction)}`,
+              'Answer in Russian. If the question needs history, counterparties, tokens, or external facts, call ask_tx_analyst and use its answer. Otherwise answer from the verdict only. Do not invent facts.',
+            ].join('\n');
+
+            runLoop(responderId, message, {
+              model: agentModelName,
+              context: responder.getMemory().getContext(),
+              tools: responder.getTools(),
+              structuredOutput: {
+                name: 'responder_answer',
+                strict: true,
+                schema: {
+                  type: 'object',
+                  properties: {
+                    answer: { type: 'string', minLength: 1 },
+                  },
+                  required: ['answer'],
+                  additionalProperties: false,
+                },
+              },
+            });
+          } catch (error) {
+            const payload: AnalysisFailedPayload = {
+              requestId,
+              error: error instanceof Error ? error.message : String(error),
+            };
+            sendEvent(
+              SemanticEvent.create('analysis.failed', responderId, payload),
+              responderId,
+            );
+          }
         },
       },
     },
     {
       specification: new ForRequest('enrichment.completed', requestId),
       processor: {
-        apply({ event, participant }) {
+        apply({ event }) {
           const facts = event.payload as EnrichmentCompletedPayload;
-          const agents: AgentResponse[] = [
-            { agent: 'TxAnalyst', content: facts.summary },
-            {
-              agent: 'Responder',
-              content: `Адрес ${facts.address}: вердикт модели «${request.prediction.verdict}». ${facts.summary}`,
-            },
-          ];
-          const result: AskResponse = {
-            address: request.address,
-            prediction: request.prediction,
-            agents,
-          };
-          const payload: AnalysisCompletedPayload = { requestId, response: result };
-          sendEvent(
-            SemanticEvent.create('analysis.completed', participant.getId(), payload),
-            participant.getId(),
-          );
+          analystFacts = facts.summary;
+          resolveEnrichment(facts.summary);
+        },
+      },
+    },
+    {
+      specification: new ForRequest('analysis.failed', requestId),
+      processor: {
+        apply({ event }) {
+          const error = new Error((event.payload as AnalysisFailedPayload).error);
+          rejectEnrichment(error);
+          rejectAnswer(error);
         },
       },
     },
@@ -177,8 +266,9 @@ export async function runAnalysis(
   const responder = createAgent({
     name: 'Responder',
     capabilities: ['inference'],
-    instruction: 'Answer the user using the ML verdict and facts from TxAnalyst.',
-    tools: [],
+    instruction:
+      'Answer the user in Russian using the ML verdict and, when needed, facts from TxAnalyst. Never recompute the verdict.',
+    tools: [askTxAnalystTool],
     handlers: responderHandlers,
   });
 
@@ -247,6 +337,34 @@ export async function runAnalysis(
     ],
   });
 
+  const responderObserver = createHuman({
+    name: 'ResponderObserver',
+    capabilities: [],
+    handlers: [
+      {
+        specification: new FromParticipant('model.answer', responder.getId()),
+        processor: {
+          apply({ event, participant }) {
+            const content = readResponderAnswer(event.payload);
+            const result: AskResponse = {
+              address: request.address,
+              prediction: request.prediction,
+              agents: [
+                { agent: 'TxAnalyst', content: analystFacts },
+                { agent: 'Responder', content },
+              ],
+            };
+            const payload: AnalysisCompletedPayload = { requestId, response: result };
+            sendEvent(
+              SemanticEvent.create('analysis.completed', participant.getId(), payload),
+              participant.getId(),
+            );
+          },
+        },
+      },
+    ],
+  });
+
   const observer = createHuman({
     name: 'Observer',
     capabilities: [],
@@ -279,6 +397,7 @@ export async function runAnalysis(
   join(responder);
   join(analyst);
   join(analystObserver);
+  join(responderObserver);
   join(observer);
 
   const requestPayload: RequestPayload = {
@@ -297,6 +416,7 @@ export async function runAnalysis(
   } finally {
     if (timer) clearTimeout(timer);
     leave(observer);
+    leave(responderObserver);
     leave(analystObserver);
     leave(analyst);
     leave(responder);

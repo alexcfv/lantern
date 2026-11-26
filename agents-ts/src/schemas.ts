@@ -19,6 +19,10 @@ export const analyzeResponseSchema = z.object({
   reason: z.string().nullable().default(null),
 });
 
+export const responderAnswerSchema = z.object({
+  answer: z.string().min(1),
+});
+
 export const askRequestSchema = z.object({
   address: z.string().min(1),
   tx_in_count: z.number().int().nonnegative(),
