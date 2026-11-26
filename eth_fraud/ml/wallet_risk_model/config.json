@@ -1,0 +1,20 @@
+{
+  "features": [
+    "tx_in_count",
+    "eth_in",
+    "distinct_in_counterparties",
+    "approval_events",
+    "distinct_token_contracts",
+    "has_incoming",
+    "in_age_days",
+    "days_since_last_in",
+    "in_span_days"
+  ],
+  "log_idx": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ]
+}

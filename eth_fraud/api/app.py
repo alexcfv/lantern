@@ -1,13 +1,12 @@
 from flask import Flask, jsonify, request
 from pydantic import ValidationError
 
-from eth_fraud.ml.predictor import Predictor, StubPredictor
 from eth_fraud.schemas import AnalyzeRequest
+from eth_fraud.services.analyzer import Analyzer
 
 
-def create_app(predictor: Predictor | None = None) -> Flask:
+def create_app(analyzer: Analyzer) -> Flask:
     app = Flask(__name__)
-    predictor = predictor or StubPredictor()
 
     @app.post("/analyze")
     def analyze() -> tuple:
@@ -23,6 +22,6 @@ def create_app(predictor: Predictor | None = None) -> Flask:
                 "details": exc.errors(include_input=False, include_context=False, include_url=False),
             }), 400
 
-        return jsonify(predictor.predict(features).model_dump()), 200
+        return jsonify(analyzer.analyze(features).model_dump()), 200
 
     return app
