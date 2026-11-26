@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: ethereum-fraud-detection-pipeline
+Version: 0.1.0
+Requires-Python: >=3.10
+Requires-Dist: Flask<4,>=3.0
+Requires-Dist: pydantic<3,>=2
+Requires-Dist: httpx<1,>=0.27
