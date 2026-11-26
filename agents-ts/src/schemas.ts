@@ -39,6 +39,7 @@ export const askRequestSchema = z.object({
   distinct_token_contracts: z.number().int().nonnegative(),
   user_request: z.string().min(1),
   prediction: analyzeResponseSchema,
+  goplus_result: z.record(z.string(), z.string()).default({}),
 });
 
 export const evidenceItemSchema = z.object({
@@ -58,6 +59,7 @@ export const askResponseSchema = z.object({
   prediction: analyzeResponseSchema,
   agents: z.array(agentResponseSchema),
   evidence: z.array(evidenceItemSchema).default([]),
+  goplus_result: z.record(z.string(), z.string()).default({}),
 });
 
 export type AnalyzeResponse = z.infer<typeof analyzeResponseSchema>;

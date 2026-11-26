@@ -25,7 +25,7 @@ class GoPlusRedFlagChecker:
             return RedFlagResult(flagged=False)
 
         flags = [field for field in RED_FLAG_FIELDS if result.get(field) == "1"]
-        return RedFlagResult(flagged=bool(flags), flags=flags)
+        return RedFlagResult(flagged=bool(flags), flags=flags, result=result)
 
     def has_red_flag(self, address: str) -> bool:
         return self.check(address).flagged
