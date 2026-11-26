@@ -24,7 +24,7 @@ class GoPlusClient:
         self._timeout = timeout
         self._chain_id = chain_id
 
-    def has_red_flag(self, address: str) -> bool:
+    def check(self, address: str) -> dict[str, str]:
         response = httpx.get(
             f"{self._base_url}/api/v1/address_security/{address}",
             params={"chain_id": self._chain_id},
@@ -35,10 +35,13 @@ class GoPlusClient:
 
         payload = response.json()
         if payload.get("code") != 1:
-            return False
+            return {}
 
         result = payload.get("result")
         if not isinstance(result, dict):
-            return False
+            return {}
 
-        return any(result.get(field) == "1" for field in RED_FLAG_FIELDS)
+        return result
+
+    def has_red_flag(self, address: str) -> bool:
+        return any(self.check(address).get(field) == "1" for field in RED_FLAG_FIELDS)
