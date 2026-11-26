@@ -41,8 +41,4 @@ class GoPlusClient:
         if not isinstance(result, dict):
             return False
 
-        flags = result.get(address.lower(), result.get(address))
-        if not isinstance(flags, dict):
-            return False
-
-        return any(flags.get(field) == "1" for field in RED_FLAG_FIELDS)
+        return any(result.get(field) == "1" for field in RED_FLAG_FIELDS)
