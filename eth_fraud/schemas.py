@@ -33,6 +33,13 @@ class AskRequest(AnalyzeRequest):
     user_request: str = Field(min_length=1)
 
 
+class EvidenceItem(BaseModel):
+    id: str
+    claim: str
+    source: str
+    detail: str
+
+
 class AgentResponse(BaseModel):
     agent: str
     content: str
@@ -42,3 +49,4 @@ class AskResponse(BaseModel):
     address: str
     prediction: AnalyzeResponse
     agents: list[AgentResponse]
+    evidence: list[EvidenceItem] = Field(default_factory=list)
