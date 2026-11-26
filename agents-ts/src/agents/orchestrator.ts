@@ -12,6 +12,7 @@ import {
 } from '@mozaik-ai/core';
 import { loadSettings } from '../config.js';
 import { createTransactionHistoryTool, EtherscanClient } from '../integrations/etherscan.js';
+import { patchGeminiFunctionCalling } from './gemini-tool-compat.js';
 import type { AgentResponse, AskRequest, AskResponse } from '../schemas.js';
 
 type RequestPayload = {
@@ -43,22 +44,22 @@ type AnalysisFailedPayload = {
   error: string;
 };
 
-const historyKeywords = [
-  'истори',
-  'транзакц',
-  'перевод',
-  'откуда',
-  'перв',
-  'последн',
-  'контрагент',
-  'history',
-  'transaction',
-  'counterpart',
-];
+class FromParticipant extends SituationSpecification {
+  constructor(
+    private readonly type: string,
+    private readonly producerId: string,
+  ) {
+    super();
+  }
 
-function needsHistory(question: string): boolean {
-  const normalized = question.toLowerCase();
-  return historyKeywords.some((keyword) => normalized.includes(keyword));
+  isSatisfiedBy({ event }: SituationContext): boolean {
+    return event.type === this.type && event.producerId === this.producerId;
+  }
+}
+
+function readModelAnswer(payload: unknown): string {
+  const answer = (payload as { answer?: { content?: { text?: unknown } } }).answer;
+  return typeof answer?.content?.text === 'string' ? answer.content.text : JSON.stringify(payload);
 }
 
 class ForRequest extends SituationSpecification {
@@ -83,7 +84,7 @@ class AppState extends RuntimeState {
   readonly answers = new Map<string, AskResponse>();
 }
 
-const { initializeRuntime, join, leave, sendEvent } = defineRuntime<AppState>();
+const { initializeRuntime, join, leave, runLoop, sendEvent } = defineRuntime<AppState>();
 
 const settings = loadSettings();
 const selectedModel = supportedModels.find(
@@ -91,6 +92,10 @@ const selectedModel = supportedModels.find(
 );
 if (!selectedModel) {
   throw new Error(`unsupported AGENT_MODEL: ${settings.model}`);
+}
+const agentModelName = selectedModel.specification.name;
+if (selectedModel.specification.provider === 'google') {
+  patchGeminiFunctionCalling(selectedModel.endpoint);
 }
 if (!settings.geminiApiKey) {
   console.warn('GEMINI_API_KEY is not set; LLM calls will fail until it is configured');
@@ -181,22 +186,20 @@ export async function runAnalysis(
     {
       specification: new ForRequest('enrichment.requested', requestId),
       processor: {
-        async apply({ participant }) {
+        apply({ participant }) {
           try {
-            let summary = 'История транзакций не запрашивалась.';
-            if (needsHistory(request.user_request)) {
-              const history = await etherscan.getTransactionSummary(request.address);
-              summary = `Etherscan (chain ${history.chainId}): ${history.regularCount} обычных транзакций, ${history.tokenCount} токен-переводов. Первый: ${history.firstDate ?? 'нет'}, последний: ${history.lastDate ?? 'нет'}. Контрагентов: ${history.counterparties.length}. Крупнейший перевод: ${history.largestEth.toFixed(4)} ETH.`;
-            }
-            const payload: EnrichmentCompletedPayload = {
-              requestId,
-              address: request.address,
-              summary,
-            };
-            sendEvent(
-              SemanticEvent.create('enrichment.completed', participant.getId(), payload),
-              participant.getId(),
-            );
+            const message = [
+              `Address: ${request.address}`,
+              `User question: ${request.user_request}`,
+              `ML verdict: ${JSON.stringify(request.prediction)}`,
+              'Use get_transaction_history only when the user question requires real transaction history. Return concise facts, never a verdict.',
+            ].join('\n');
+
+            runLoop(participant.getId(), message, {
+              model: agentModelName,
+              context: analyst.getMemory().getContext(),
+              tools: analyst.getTools(),
+            });
           } catch (error) {
             const payload: AnalysisFailedPayload = {
               requestId,
@@ -218,6 +221,30 @@ export async function runAnalysis(
     instruction: 'Return only facts from Etherscan, never a verdict.',
     tools: [createTransactionHistoryTool(etherscan)],
     handlers: analystHandlers,
+  });
+
+  const analystObserver = createHuman({
+    name: 'AnalystObserver',
+    capabilities: [],
+    handlers: [
+      {
+        specification: new FromParticipant('model.answer', analyst.getId()),
+        processor: {
+          apply({ event, participant }) {
+            const summary = readModelAnswer(event.payload);
+            const payload: EnrichmentCompletedPayload = {
+              requestId,
+              address: request.address,
+              summary,
+            };
+            sendEvent(
+              SemanticEvent.create('enrichment.completed', participant.getId(), payload),
+              participant.getId(),
+            );
+          },
+        },
+      },
+    ],
   });
 
   const observer = createHuman({
@@ -251,6 +278,7 @@ export async function runAnalysis(
   join(gateway);
   join(responder);
   join(analyst);
+  join(analystObserver);
   join(observer);
 
   const requestPayload: RequestPayload = {
@@ -269,6 +297,7 @@ export async function runAnalysis(
   } finally {
     if (timer) clearTimeout(timer);
     leave(observer);
+    leave(analystObserver);
     leave(analyst);
     leave(responder);
     leave(gateway);
