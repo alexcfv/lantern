@@ -19,6 +19,8 @@ class AnalyzeResponse(BaseModel):
     fraud_probability: float | None = None
     verdict: str
     model: str
+    red_flag: bool = False
+    reason: str | None = None
 
 
 class AskRequest(AnalyzeRequest):
