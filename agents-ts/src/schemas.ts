@@ -36,6 +36,13 @@ export const askRequestSchema = z.object({
   prediction: analyzeResponseSchema,
 });
 
+export const evidenceItemSchema = z.object({
+  id: z.string(),
+  claim: z.string(),
+  source: z.string(),
+  detail: z.string(),
+});
+
 export const agentResponseSchema = z.object({
   agent: z.string(),
   content: z.string(),
@@ -45,9 +52,11 @@ export const askResponseSchema = z.object({
   address: z.string(),
   prediction: analyzeResponseSchema,
   agents: z.array(agentResponseSchema),
+  evidence: z.array(evidenceItemSchema).default([]),
 });
 
 export type AnalyzeResponse = z.infer<typeof analyzeResponseSchema>;
 export type AskRequest = z.infer<typeof askRequestSchema>;
+export type EvidenceItem = z.infer<typeof evidenceItemSchema>;
 export type AgentResponse = z.infer<typeof agentResponseSchema>;
 export type AskResponse = z.infer<typeof askResponseSchema>;

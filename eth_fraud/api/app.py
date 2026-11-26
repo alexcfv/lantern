@@ -5,10 +5,51 @@ from flask import Flask, jsonify, request
 from pydantic import ValidationError
 
 from eth_fraud.integrations.agents import AgentsClient
-from eth_fraud.schemas import AgentResponse, AnalyzeRequest, AskRequest, AskResponse
+from eth_fraud.schemas import (
+    AgentResponse,
+    AnalyzeRequest,
+    AnalyzeResponse,
+    AskRequest,
+    AskResponse,
+    EvidenceItem,
+)
 from eth_fraud.services.analyzer import Analyzer
 
 logger = logging.getLogger(__name__)
+
+
+def build_model_evidence(prediction: AnalyzeResponse) -> list[EvidenceItem]:
+    detail = f"model: {prediction.model}"
+    items = [
+        EvidenceItem(
+            id="model.verdict",
+            claim=f"Verdict: {prediction.verdict}.",
+            source="Model",
+            detail=detail,
+        )
+    ]
+    if prediction.fraud_probability is not None:
+        items.append(
+            EvidenceItem(
+                id="model.fraud_probability",
+                claim=f"Fraud probability: {prediction.fraud_probability}.",
+                source="Model",
+                detail=detail,
+            )
+        )
+    items.append(
+        EvidenceItem(
+            id="model.red_flags",
+            claim=(
+                f"Red flags: {', '.join(prediction.red_flags)}."
+                if prediction.red_flags
+                else "No red flags were detected."
+            ),
+            source="Model",
+            detail=prediction.reason or detail,
+        )
+    )
+    return items
 
 
 def create_app(analyzer: Analyzer, agents_client: AgentsClient) -> Flask:
@@ -54,6 +95,7 @@ def create_app(analyzer: Analyzer, agents_client: AgentsClient) -> Flask:
                 address=features.address,
                 prediction=prediction,
                 agents=[AgentResponse(agent="system", content="Агентный анализ недоступен")],
+                evidence=build_model_evidence(prediction),
             )
 
         return jsonify(result.model_dump(mode="json")), 200

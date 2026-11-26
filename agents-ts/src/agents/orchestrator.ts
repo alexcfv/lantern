@@ -16,7 +16,7 @@ import { loadSettings } from '../config.js';
 import { createTransactionHistoryTool, EtherscanClient } from '../integrations/etherscan.js';
 import { patchGeminiFunctionCalling } from './gemini-tool-compat.js';
 import { responderAnswerSchema } from '../schemas.js';
-import type { AskRequest, AskResponse } from '../schemas.js';
+import type { AskRequest, AskResponse, EvidenceItem } from '../schemas.js';
 
 type RequestPayload = {
   requestId: string;
@@ -31,10 +31,14 @@ type EnrichmentRequestedPayload = {
   question: string;
 };
 
-type EnrichmentCompletedPayload = {
+type EnrichmentFacts = {
+  summary: string;
+  evidence: EvidenceItem[];
+};
+
+type EnrichmentCompletedPayload = EnrichmentFacts & {
   requestId: string;
   address: string;
-  summary: string;
 };
 
 type AnalysisCompletedPayload = {
@@ -72,6 +76,38 @@ function readResponderAnswer(payload: unknown): string {
   } catch {
     return text;
   }
+}
+
+function buildModelEvidence(prediction: AskRequest['prediction']): EvidenceItem[] {
+  const detail = `model: ${prediction.model}`;
+  const items: EvidenceItem[] = [
+    {
+      id: 'model.verdict',
+      claim: `Verdict: ${prediction.verdict}.`,
+      source: 'Model',
+      detail,
+    },
+  ];
+
+  if (prediction.fraud_probability !== null) {
+    items.push({
+      id: 'model.fraud_probability',
+      claim: `Fraud probability: ${prediction.fraud_probability}.`,
+      source: 'Model',
+      detail,
+    });
+  }
+
+  items.push({
+    id: 'model.red_flags',
+    claim: prediction.red_flags.length
+      ? `Red flags: ${prediction.red_flags.join(', ')}.`
+      : 'No red flags were detected.',
+    source: 'Model',
+    detail: prediction.reason ?? detail,
+  });
+
+  return items;
 }
 
 class ForRequest extends SituationSpecification {
@@ -133,6 +169,8 @@ export async function runAnalysis(
 ): Promise<AskResponse> {
   const requestId = randomUUID();
 
+  const modelEvidence = buildModelEvidence(request.prediction);
+  let etherscanEvidence: EvidenceItem[] = [];
   let responderId = '';
   let analystFacts = 'No additional facts were requested.';
 
@@ -143,9 +181,9 @@ export async function runAnalysis(
     rejectAnswer = reject;
   });
 
-  let resolveEnrichment!: (facts: string) => void;
+  let resolveEnrichment!: (facts: EnrichmentFacts) => void;
   let rejectEnrichment!: (error: Error) => void;
-  const enrichment = new Promise<string>((resolve, reject) => {
+  const enrichment = new Promise<EnrichmentFacts>((resolve, reject) => {
     resolveEnrichment = resolve;
     rejectEnrichment = reject;
   });
@@ -190,7 +228,8 @@ export async function runAnalysis(
         );
       });
       try {
-        return await Promise.race([enrichment, timeout]);
+        const facts = await Promise.race([enrichment, timeout]);
+        return { summary: facts.summary, evidence: facts.evidence };
       } finally {
         if (timer) clearTimeout(timer);
       }
@@ -208,7 +247,8 @@ export async function runAnalysis(
               `User question: ${request.user_request}`,
               `Address: ${request.address}`,
               `ML verdict (do not recompute): ${JSON.stringify(request.prediction)}`,
-              'Answer in English. Only answer questions about the provided wallet and the supplied ML verdict. If the question is unrelated, asks about other wallets, or asks for a global list, say you can only analyze the provided wallet. If the question needs wallet history, counterparties, or tokens, call ask_tx_analyst and use its answer. Do not invent facts and do not use any data outside the provided verdict and TxAnalyst.',
+              `Evidence already available (cite only these IDs): ${JSON.stringify(modelEvidence)}`,
+              'Answer in English. Only answer questions about the provided wallet and the supplied ML verdict. If the question is unrelated, asks about other wallets, or asks for a global list, say you can only analyze the provided wallet. If the question needs wallet history, counterparties, or tokens, call ask_tx_analyst and use its answer. Do not invent facts and do not use any data outside the provided evidence and TxAnalyst.',
             ].join('\n');
 
             runLoop(responderId, message, {
@@ -247,7 +287,8 @@ export async function runAnalysis(
         apply({ event }) {
           const facts = event.payload as EnrichmentCompletedPayload;
           analystFacts = facts.summary;
-          resolveEnrichment(facts.summary);
+          etherscanEvidence = facts.evidence;
+          resolveEnrichment(facts);
         },
       },
     },
@@ -310,7 +351,11 @@ export async function runAnalysis(
     capabilities: ['etherscan'],
     instruction:
       'Answer in English. Return only facts about the provided wallet from Etherscan, never a verdict. Do not inspect other addresses.',
-    tools: [createTransactionHistoryTool(etherscan, request.address)],
+    tools: [
+      createTransactionHistoryTool(etherscan, request.address, (items) => {
+        etherscanEvidence = items;
+      }),
+    ],
     handlers: analystHandlers,
   });
 
@@ -327,6 +372,7 @@ export async function runAnalysis(
               requestId,
               address: request.address,
               summary,
+              evidence: etherscanEvidence,
             };
             sendEvent(
               SemanticEvent.create('enrichment.completed', participant.getId(), payload),
@@ -354,6 +400,7 @@ export async function runAnalysis(
                 { agent: 'TxAnalyst', content: analystFacts },
                 { agent: 'Responder', content },
               ],
+              evidence: [...modelEvidence, ...etherscanEvidence],
             };
             const payload: AnalysisCompletedPayload = { requestId, response: result };
             sendEvent(
