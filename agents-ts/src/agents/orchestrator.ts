@@ -134,7 +134,7 @@ export async function runAnalysis(
   const requestId = randomUUID();
 
   let responderId = '';
-  let analystFacts = 'Дополнительные факты не запрошены.';
+  let analystFacts = 'No additional facts were requested.';
 
   let resolveAnswer!: (answer: AskResponse) => void;
   let rejectAnswer!: (error: Error) => void;
@@ -208,7 +208,7 @@ export async function runAnalysis(
               `User question: ${request.user_request}`,
               `Address: ${request.address}`,
               `ML verdict (do not recompute): ${JSON.stringify(request.prediction)}`,
-              'Answer in Russian. If the question needs history, counterparties, tokens, or external facts, call ask_tx_analyst and use its answer. Otherwise answer from the verdict only. Do not invent facts.',
+              'Answer in English. If the question needs history, counterparties, tokens, or external facts, call ask_tx_analyst and use its answer. Otherwise answer from the verdict only. Do not invent facts.',
             ].join('\n');
 
             runLoop(responderId, message, {
@@ -267,7 +267,7 @@ export async function runAnalysis(
     name: 'Responder',
     capabilities: ['inference'],
     instruction:
-      'Answer the user in Russian using the ML verdict and, when needed, facts from TxAnalyst. Never recompute the verdict.',
+      'Answer the user in English using the ML verdict and, when needed, facts from TxAnalyst. Never recompute the verdict.',
     tools: [askTxAnalystTool],
     handlers: responderHandlers,
   });
@@ -282,7 +282,7 @@ export async function runAnalysis(
               `Address: ${request.address}`,
               `User question: ${request.user_request}`,
               `ML verdict: ${JSON.stringify(request.prediction)}`,
-              'Use get_transaction_history only when the user question requires real transaction history. Return concise facts, never a verdict.',
+              'Use get_transaction_history only when the user question requires real transaction history. Answer in English. Return concise facts, never a verdict.',
             ].join('\n');
 
             runLoop(participant.getId(), message, {
@@ -308,7 +308,7 @@ export async function runAnalysis(
   const analyst = createAgent({
     name: 'TxAnalyst',
     capabilities: ['etherscan'],
-    instruction: 'Return only facts from Etherscan, never a verdict.',
+    instruction: 'Answer in English. Return only facts from Etherscan, never a verdict.',
     tools: [createTransactionHistoryTool(etherscan)],
     handlers: analystHandlers,
   });
