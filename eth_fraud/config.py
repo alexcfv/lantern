@@ -11,6 +11,8 @@ class Settings:
     goplus_access_token: str
     goplus_timeout_seconds: float
     chain_id: str
+    model_backend: str
+    model_reference_date: str | None
 
 
 def load_settings() -> Settings:
@@ -22,4 +24,6 @@ def load_settings() -> Settings:
         goplus_access_token=os.getenv("GOPLUS_ACCESS_TOKEN", ""),
         goplus_timeout_seconds=float(os.getenv("GOPLUS_TIMEOUT_SECONDS", "5")),
         chain_id=os.getenv("CHAIN_ID", "1"),
+        model_backend=os.getenv("MODEL_BACKEND", "tabicl"),
+        model_reference_date=os.getenv("MODEL_REFERENCE_DATE") or None,
     )

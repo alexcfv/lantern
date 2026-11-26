@@ -1,3 +1,5 @@
+from datetime import date
+
 from eth_fraud.config import Settings
 from eth_fraud.integrations.goplus import GoPlusClient
 from eth_fraud.ml.predictor import Predictor, StubPredictor
@@ -32,4 +34,15 @@ def build_analyzer(settings: Settings) -> Analyzer:
         timeout=settings.goplus_timeout_seconds,
         chain_id=settings.chain_id,
     )
-    return Analyzer(GoPlusRedFlagChecker(client), StubPredictor())
+    predictor: Predictor = StubPredictor()
+    if settings.model_backend == "tabicl":
+        from eth_fraud.ml.tabicl_predictor import TabICLPredictor
+
+        reference_date = (
+            date.fromisoformat(settings.model_reference_date)
+            if settings.model_reference_date
+            else None
+        )
+        predictor = TabICLPredictor(reference_date=reference_date)
+
+    return Analyzer(GoPlusRedFlagChecker(client), predictor)
