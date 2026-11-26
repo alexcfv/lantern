@@ -20,7 +20,13 @@ class AnalyzeResponse(BaseModel):
     verdict: str
     model: str
     red_flag: bool = False
+    red_flags: list[str] = Field(default_factory=list)
     reason: str | None = None
+
+
+class RedFlagResult(BaseModel):
+    flagged: bool
+    flags: list[str] = Field(default_factory=list)
 
 
 class AskRequest(AnalyzeRequest):

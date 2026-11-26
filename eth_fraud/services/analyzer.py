@@ -11,13 +11,15 @@ class Analyzer:
         self._predictor = predictor
 
     def analyze(self, features: AnalyzeRequest) -> AnalyzeResponse:
-        if self._checker.has_red_flag(features.address):
+        red_flag = self._checker.check(features.address)
+        if red_flag.flagged:
             return AnalyzeResponse(
                 address=features.address,
                 verdict="scam",
                 model="goplus",
                 red_flag=True,
-                reason="Address is flagged as malicious by GoPlus",
+                red_flags=red_flag.flags,
+                reason=f"GoPlus: {', '.join(red_flag.flags)}",
             )
 
         return self._predictor.predict(features)
