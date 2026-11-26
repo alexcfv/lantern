@@ -152,11 +152,15 @@ export class EtherscanClient {
   }
 }
 
-export function createTransactionHistoryTool(client: EtherscanClient): Tool {
+export function createTransactionHistoryTool(
+  client: EtherscanClient,
+  allowedAddress?: string,
+): Tool {
   return {
     type: 'function',
     name: 'get_transaction_history',
-    description: 'Fetch real transaction history for an Ethereum address from Etherscan.',
+    description:
+      'Fetch real transaction history for the requested wallet only. Never use this for other addresses or global lists.',
     parameters: {
       type: 'object',
       properties: {
@@ -170,7 +174,10 @@ export function createTransactionHistoryTool(client: EtherscanClient): Tool {
     },
     strict: true,
     invoke: async (args: { address?: unknown }) => {
-      const address = z.string().min(1).parse(args.address);
+      const address = z.string().min(1).parse(args.address).trim();
+      if (allowedAddress && address.toLowerCase() !== allowedAddress.toLowerCase()) {
+        throw new Error('Only the requested wallet can be inspected');
+      }
       return client.getTransactionSummary(address);
     },
   };

@@ -157,7 +157,7 @@ export async function runAnalysis(
     type: 'function',
     name: 'ask_tx_analyst',
     description:
-      'Ask TxAnalyst for verified external facts or transaction history for this address. Use it when the user asks about activity, history, counterparties, tokens, or when provided facts are insufficient. Never invent facts.',
+      'Ask TxAnalyst about the provided wallet only: its activity, history, counterparties, or tokens. Never use it for other addresses, global lists, or general crypto questions. Always scope the question to the provided wallet.',
     parameters: {
       type: 'object',
       properties: {
@@ -208,7 +208,7 @@ export async function runAnalysis(
               `User question: ${request.user_request}`,
               `Address: ${request.address}`,
               `ML verdict (do not recompute): ${JSON.stringify(request.prediction)}`,
-              'Answer in English. If the question needs history, counterparties, tokens, or external facts, call ask_tx_analyst and use its answer. Otherwise answer from the verdict only. Do not invent facts.',
+              'Answer in English. Only answer questions about the provided wallet and the supplied ML verdict. If the question is unrelated, asks about other wallets, or asks for a global list, say you can only analyze the provided wallet. If the question needs wallet history, counterparties, or tokens, call ask_tx_analyst and use its answer. Do not invent facts and do not use any data outside the provided verdict and TxAnalyst.',
             ].join('\n');
 
             runLoop(responderId, message, {
@@ -267,7 +267,7 @@ export async function runAnalysis(
     name: 'Responder',
     capabilities: ['inference'],
     instruction:
-      'Answer the user in English using the ML verdict and, when needed, facts from TxAnalyst. Never recompute the verdict.',
+      'Answer the user in English using only the ML verdict and, when needed, facts about the provided wallet from TxAnalyst. Do not answer questions about other wallets or global lists. Never recompute the verdict.',
     tools: [askTxAnalystTool],
     handlers: responderHandlers,
   });
@@ -282,7 +282,7 @@ export async function runAnalysis(
               `Address: ${request.address}`,
               `User question: ${request.user_request}`,
               `ML verdict: ${JSON.stringify(request.prediction)}`,
-              'Use get_transaction_history only when the user question requires real transaction history. Answer in English. Return concise facts, never a verdict.',
+              'Use get_transaction_history only for the address provided above and only when the question requires its real transaction history. Answer in English. Return concise facts about this wallet only, never a verdict. If the question is unrelated or asks about other addresses or global lists, say you can only analyze the provided wallet.',
             ].join('\n');
 
             runLoop(participant.getId(), message, {
@@ -308,8 +308,9 @@ export async function runAnalysis(
   const analyst = createAgent({
     name: 'TxAnalyst',
     capabilities: ['etherscan'],
-    instruction: 'Answer in English. Return only facts from Etherscan, never a verdict.',
-    tools: [createTransactionHistoryTool(etherscan)],
+    instruction:
+      'Answer in English. Return only facts about the provided wallet from Etherscan, never a verdict. Do not inspect other addresses.',
+    tools: [createTransactionHistoryTool(etherscan, request.address)],
     handlers: analystHandlers,
   });
 
