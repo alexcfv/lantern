@@ -11,7 +11,7 @@ import {
   type SituationHandler,
 } from '@mozaik-ai/core';
 import { loadSettings } from '../config.js';
-import { InMemoryTxRepository, type TxRepository } from '../db/repository.js';
+import { createTransactionHistoryTool, EtherscanClient } from '../integrations/etherscan.js';
 import type { AgentResponse, AskRequest, AskResponse } from '../schemas.js';
 
 type RequestPayload = {
@@ -42,6 +42,24 @@ type AnalysisFailedPayload = {
   requestId: string;
   error: string;
 };
+
+const historyKeywords = [
+  'истори',
+  'транзакц',
+  'перевод',
+  'откуда',
+  'перв',
+  'последн',
+  'контрагент',
+  'history',
+  'transaction',
+  'counterpart',
+];
+
+function needsHistory(question: string): boolean {
+  const normalized = question.toLowerCase();
+  return historyKeywords.some((keyword) => normalized.includes(keyword));
+}
 
 class ForRequest extends SituationSpecification {
   constructor(
@@ -83,12 +101,18 @@ initializeRuntime({
   inferenceRunnerConfig: { supportedModels: [selectedModel] },
 });
 
-const defaultRepository = new InMemoryTxRepository();
+const defaultEtherscanClient = new EtherscanClient({
+  apiKey: settings.etherscanApiKey,
+  chainId: settings.etherscanChainId,
+  baseUrl: settings.etherscanBaseUrl,
+  timeoutMs: settings.etherscanTimeoutMs,
+  limit: 100,
+});
 
 export async function runAnalysis(
   request: AskRequest,
   timeoutMs = settings.timeoutMs,
-  repository: TxRepository = defaultRepository,
+  etherscan: EtherscanClient = defaultEtherscanClient,
 ): Promise<AskResponse> {
   const requestId = randomUUID();
 
@@ -159,15 +183,15 @@ export async function runAnalysis(
       processor: {
         async apply({ participant }) {
           try {
-            const [features, transactions, scam] = await Promise.all([
-              repository.getWalletFeatures(request.address),
-              repository.getTransactionSummary(request.address),
-              repository.findScamWallet(request.address),
-            ]);
+            let summary = 'История транзакций не запрашивалась.';
+            if (needsHistory(request.user_request)) {
+              const history = await etherscan.getTransactionSummary(request.address);
+              summary = `Etherscan (chain ${history.chainId}): ${history.regularCount} обычных транзакций, ${history.tokenCount} токен-переводов. Первый: ${history.firstDate ?? 'нет'}, последний: ${history.lastDate ?? 'нет'}. Контрагентов: ${history.counterparties.length}. Крупнейший перевод: ${history.largestEth.toFixed(4)} ETH.`;
+            }
             const payload: EnrichmentCompletedPayload = {
               requestId,
               address: request.address,
-              summary: `Скам-лист: ${scam ? 'найдена запись' : 'нет записи'}. История: ${transactions.count} транзакций. Фичи в БД: ${features ? 'есть' : 'нет'}.`,
+              summary,
             };
             sendEvent(
               SemanticEvent.create('enrichment.completed', participant.getId(), payload),
@@ -190,9 +214,9 @@ export async function runAnalysis(
 
   const analyst = createAgent({
     name: 'TxAnalyst',
-    capabilities: ['db'],
-    instruction: 'Return only facts from the repository, never a verdict.',
-    tools: [],
+    capabilities: ['etherscan'],
+    instruction: 'Return only facts from Etherscan, never a verdict.',
+    tools: [createTransactionHistoryTool(etherscan)],
     handlers: analystHandlers,
   });
 

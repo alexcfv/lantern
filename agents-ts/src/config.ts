@@ -7,6 +7,10 @@ export type Settings = {
   timeoutMs: number;
   model: string;
   geminiApiKey: string;
+  etherscanApiKey: string;
+  etherscanChainId: number;
+  etherscanBaseUrl: string;
+  etherscanTimeoutMs: number;
 };
 
 function readNumber(name: string, fallback: number, min: number, max: number): number {
@@ -26,5 +30,9 @@ export function loadSettings(): Settings {
     timeoutMs: readNumber('AGENTS_TIMEOUT_MS', 8000, 1000, 3_600_000),
     model: process.env.AGENT_MODEL ?? 'gemini-3.5-flash-lite',
     geminiApiKey: process.env.GEMINI_API_KEY?.trim() ?? '',
+    etherscanApiKey: process.env.ETHERSCAN_API_KEY?.trim() ?? '',
+    etherscanChainId: readNumber('ETHERSCAN_CHAIN_ID', 1, 1, 1_000_000),
+    etherscanBaseUrl: process.env.ETHERSCAN_BASE_URL ?? 'https://api.etherscan.io',
+    etherscanTimeoutMs: readNumber('ETHERSCAN_TIMEOUT_MS', 5000, 1000, 60_000),
   };
 }
