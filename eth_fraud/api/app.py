@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 def create_app(analyzer: Analyzer, agents_client: AgentsClient) -> Flask:
     app = Flask(__name__)
+    app.json.ensure_ascii = False
 
     @app.post("/analyze")
     def analyze() -> tuple:
