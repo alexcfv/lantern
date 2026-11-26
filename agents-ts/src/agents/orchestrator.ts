@@ -1,0 +1,236 @@
+import { randomUUID } from 'node:crypto';
+import {
+  createAgent,
+  createHuman,
+  defineRuntime,
+  RuntimeState,
+  SemanticEvent,
+  SituationSpecification,
+  type SituationContext,
+  type SituationHandler,
+} from '@mozaik-ai/core';
+import { InMemoryTxRepository, type TxRepository } from '../db/repository.js';
+import type { AgentResponse, AskRequest, AskResponse } from '../schemas.js';
+
+type RequestPayload = {
+  requestId: string;
+  address: string;
+  question: string;
+  prediction: AskRequest['prediction'];
+};
+
+type EnrichmentRequestedPayload = {
+  requestId: string;
+  address: string;
+  question: string;
+};
+
+type EnrichmentCompletedPayload = {
+  requestId: string;
+  address: string;
+  summary: string;
+};
+
+type AnalysisCompletedPayload = {
+  requestId: string;
+  response: AskResponse;
+};
+
+type AnalysisFailedPayload = {
+  requestId: string;
+  error: string;
+};
+
+class ForRequest extends SituationSpecification {
+  constructor(
+    private readonly type: string,
+    private readonly requestId: string,
+  ) {
+    super();
+  }
+
+  isSatisfiedBy({ event, participant }: SituationContext): boolean {
+    const payload = event.payload as { requestId?: string } | undefined;
+    return (
+      event.type === this.type &&
+      payload?.requestId === this.requestId &&
+      event.producerId !== participant.getId()
+    );
+  }
+}
+
+class AppState extends RuntimeState {
+  readonly answers = new Map<string, AskResponse>();
+}
+
+const { initializeRuntime, join, leave, sendEvent } = defineRuntime<AppState>();
+
+initializeRuntime({ state: new AppState() });
+
+const defaultRepository = new InMemoryTxRepository();
+
+export async function runAnalysis(
+  request: AskRequest,
+  timeoutMs = 10_000,
+  repository: TxRepository = defaultRepository,
+): Promise<AskResponse> {
+  const requestId = randomUUID();
+
+  let resolveAnswer!: (answer: AskResponse) => void;
+  let rejectAnswer!: (error: Error) => void;
+  const answer = new Promise<AskResponse>((resolve, reject) => {
+    resolveAnswer = resolve;
+    rejectAnswer = reject;
+  });
+
+  const gateway = createHuman({ name: 'Gateway', capabilities: [], handlers: [] });
+
+  const responderHandlers: SituationHandler[] = [
+    {
+      specification: new ForRequest('analysis.requested', requestId),
+      processor: {
+        apply({ participant }) {
+          const payload: EnrichmentRequestedPayload = {
+            requestId,
+            address: request.address,
+            question: request.user_request,
+          };
+          sendEvent(
+            SemanticEvent.create('enrichment.requested', participant.getId(), payload),
+            participant.getId(),
+          );
+        },
+      },
+    },
+    {
+      specification: new ForRequest('enrichment.completed', requestId),
+      processor: {
+        apply({ event, participant }) {
+          const facts = event.payload as EnrichmentCompletedPayload;
+          const agents: AgentResponse[] = [
+            { agent: 'TxAnalyst', content: facts.summary },
+            {
+              agent: 'Responder',
+              content: `Адрес ${facts.address}: вердикт модели «${request.prediction.verdict}». ${facts.summary}`,
+            },
+          ];
+          const result: AskResponse = {
+            address: request.address,
+            prediction: request.prediction,
+            agents,
+          };
+          const payload: AnalysisCompletedPayload = { requestId, response: result };
+          sendEvent(
+            SemanticEvent.create('analysis.completed', participant.getId(), payload),
+            participant.getId(),
+          );
+        },
+      },
+    },
+  ];
+
+  const responder = createAgent({
+    name: 'Responder',
+    capabilities: ['inference'],
+    instruction: 'Answer the user using the ML verdict and facts from TxAnalyst.',
+    tools: [],
+    handlers: responderHandlers,
+  });
+
+  const analystHandlers: SituationHandler[] = [
+    {
+      specification: new ForRequest('enrichment.requested', requestId),
+      processor: {
+        async apply({ participant }) {
+          try {
+            const [features, transactions, scam] = await Promise.all([
+              repository.getWalletFeatures(request.address),
+              repository.getTransactionSummary(request.address),
+              repository.findScamWallet(request.address),
+            ]);
+            const payload: EnrichmentCompletedPayload = {
+              requestId,
+              address: request.address,
+              summary: `Скам-лист: ${scam ? 'найдена запись' : 'нет записи'}. История: ${transactions.count} транзакций. Фичи в БД: ${features ? 'есть' : 'нет'}.`,
+            };
+            sendEvent(
+              SemanticEvent.create('enrichment.completed', participant.getId(), payload),
+              participant.getId(),
+            );
+          } catch (error) {
+            const payload: AnalysisFailedPayload = {
+              requestId,
+              error: error instanceof Error ? error.message : String(error),
+            };
+            sendEvent(
+              SemanticEvent.create('analysis.failed', participant.getId(), payload),
+              participant.getId(),
+            );
+          }
+        },
+      },
+    },
+  ];
+
+  const analyst = createAgent({
+    name: 'TxAnalyst',
+    capabilities: ['db'],
+    instruction: 'Return only facts from the repository, never a verdict.',
+    tools: [],
+    handlers: analystHandlers,
+  });
+
+  const observer = createHuman({
+    name: 'Observer',
+    capabilities: [],
+    handlers: [
+      {
+        specification: new ForRequest('analysis.completed', requestId),
+        processor: {
+          apply({ event }) {
+            resolveAnswer((event.payload as AnalysisCompletedPayload).response);
+          },
+        },
+      },
+      {
+        specification: new ForRequest('analysis.failed', requestId),
+        processor: {
+          apply({ event }) {
+            rejectAnswer(new Error((event.payload as AnalysisFailedPayload).error));
+          },
+        },
+      },
+    ],
+  });
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('analysis timeout')), timeoutMs);
+  });
+
+  join(gateway);
+  join(responder);
+  join(analyst);
+  join(observer);
+
+  const requestPayload: RequestPayload = {
+    requestId,
+    address: request.address,
+    question: request.user_request,
+    prediction: request.prediction,
+  };
+  sendEvent(
+    SemanticEvent.create('analysis.requested', gateway.getId(), requestPayload),
+    gateway.getId(),
+  );
+
+  try {
+    return await Promise.race([answer, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+    leave(observer);
+    leave(analyst);
+    leave(responder);
+    leave(gateway);
+  }
+}
