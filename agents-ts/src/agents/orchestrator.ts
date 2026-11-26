@@ -15,8 +15,8 @@ import {
 import { loadSettings } from '../config.js';
 import { createTransactionHistoryTool, EtherscanClient } from '../integrations/etherscan.js';
 import { patchGeminiFunctionCalling } from './gemini-tool-compat.js';
-import { responderAnswerSchema } from '../schemas.js';
-import type { AskRequest, AskResponse, EvidenceItem } from '../schemas.js';
+import { analystAnswerSchema, responderAnswerSchema } from '../schemas.js';
+import type { AnalystAnswer, AskRequest, AskResponse, EvidenceItem } from '../schemas.js';
 
 type RequestPayload = {
   requestId: string;
@@ -34,6 +34,7 @@ type EnrichmentRequestedPayload = {
 type EnrichmentFacts = {
   summary: string;
   evidence: EvidenceItem[];
+  evidenceIds: string[];
 };
 
 type EnrichmentCompletedPayload = EnrichmentFacts & {
@@ -75,6 +76,15 @@ function readResponderAnswer(payload: unknown): string {
     return responderAnswerSchema.parse(JSON.parse(text)).answer;
   } catch {
     return text;
+  }
+}
+
+function readAnalystAnswer(payload: unknown): AnalystAnswer {
+  const text = readModelAnswer(payload);
+  try {
+    return analystAnswerSchema.parse(JSON.parse(text));
+  } catch {
+    return { summary: text, evidence_ids: [] };
   }
 }
 
@@ -229,7 +239,11 @@ export async function runAnalysis(
       });
       try {
         const facts = await Promise.race([enrichment, timeout]);
-        return { summary: facts.summary, evidence: facts.evidence };
+        return {
+          summary: facts.summary,
+          evidence: facts.evidence,
+          evidence_ids: facts.evidenceIds,
+        };
       } finally {
         if (timer) clearTimeout(timer);
       }
@@ -248,7 +262,7 @@ export async function runAnalysis(
               `Address: ${request.address}`,
               `ML verdict (do not recompute): ${JSON.stringify(request.prediction)}`,
               `Evidence already available (cite only these IDs): ${JSON.stringify(modelEvidence)}`,
-              'Answer in English. Only answer questions about the provided wallet and the supplied ML verdict. If the question is unrelated, asks about other wallets, or asks for a global list, say you can only analyze the provided wallet. If the question needs wallet history, counterparties, or tokens, call ask_tx_analyst and use its answer. Do not invent facts and do not use any data outside the provided evidence and TxAnalyst.',
+              'Answer in English. Only answer questions about the provided wallet and the supplied ML verdict. If the question is unrelated, asks about other wallets, or asks for a global list, say you can only analyze the provided wallet. If the question needs wallet history, counterparties, or tokens, call ask_tx_analyst; use only the evidence_ids it returns and do not invent facts or use any data outside the provided evidence and TxAnalyst.',
             ].join('\n');
 
             runLoop(responderId, message, {
@@ -323,13 +337,29 @@ export async function runAnalysis(
               `Address: ${request.address}`,
               `User question: ${request.user_request}`,
               `ML verdict: ${JSON.stringify(request.prediction)}`,
-              'Use get_transaction_history only for the address provided above and only when the question requires its real transaction history. Answer in English. Return concise facts about this wallet only, never a verdict. If the question is unrelated or asks about other addresses or global lists, say you can only analyze the provided wallet.',
+              'Use get_transaction_history only for the address provided above and only when the question requires its real transaction history. Answer in English. Return a concise summary of this wallet only, never a verdict. Put only the IDs of evidence actually used in evidence_ids; leave it empty if you did not call a tool. If the question is unrelated or asks about other addresses or global lists, say you can only analyze the provided wallet.',
             ].join('\n');
 
             runLoop(participant.getId(), message, {
               model: agentModelName,
               context: analyst.getMemory().getContext(),
               tools: analyst.getTools(),
+              structuredOutput: {
+                name: 'tx_analyst_answer',
+                strict: true,
+                schema: {
+                  type: 'object',
+                  properties: {
+                    summary: { type: 'string', minLength: 1 },
+                    evidence_ids: {
+                      type: 'array',
+                      items: { type: 'string' },
+                    },
+                  },
+                  required: ['summary', 'evidence_ids'],
+                  additionalProperties: false,
+                },
+              },
             });
           } catch (error) {
             const payload: AnalysisFailedPayload = {
@@ -350,7 +380,7 @@ export async function runAnalysis(
     name: 'TxAnalyst',
     capabilities: ['etherscan'],
     instruction:
-      'Answer in English. Return only facts about the provided wallet from Etherscan, never a verdict. Do not inspect other addresses.',
+      'Answer in English with summary and evidence_ids only. Return facts about the provided wallet from Etherscan, never a verdict. Do not inspect other addresses.',
     tools: [
       createTransactionHistoryTool(etherscan, request.address, (items) => {
         etherscanEvidence = items;
@@ -367,12 +397,15 @@ export async function runAnalysis(
         specification: new FromParticipant('model.answer', analyst.getId()),
         processor: {
           apply({ event, participant }) {
-            const summary = readModelAnswer(event.payload);
+            const answer = readAnalystAnswer(event.payload);
+            const allowedIds = new Set(etherscanEvidence.map((item) => item.id));
+            const evidenceIds = answer.evidence_ids.filter((id) => allowedIds.has(id));
             const payload: EnrichmentCompletedPayload = {
               requestId,
               address: request.address,
-              summary,
+              summary: answer.summary,
               evidence: etherscanEvidence,
+              evidenceIds,
             };
             sendEvent(
               SemanticEvent.create('enrichment.completed', participant.getId(), payload),

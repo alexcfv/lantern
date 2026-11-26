@@ -19,6 +19,11 @@ export const analyzeResponseSchema = z.object({
   reason: z.string().nullable().default(null),
 });
 
+export const analystAnswerSchema = z.object({
+  summary: z.string().min(1),
+  evidence_ids: z.array(z.string()).default([]),
+});
+
 export const responderAnswerSchema = z.object({
   answer: z.string().min(1),
 });
@@ -57,6 +62,7 @@ export const askResponseSchema = z.object({
 
 export type AnalyzeResponse = z.infer<typeof analyzeResponseSchema>;
 export type AskRequest = z.infer<typeof askRequestSchema>;
+export type AnalystAnswer = z.infer<typeof analystAnswerSchema>;
 export type EvidenceItem = z.infer<typeof evidenceItemSchema>;
 export type AgentResponse = z.infer<typeof agentResponseSchema>;
 export type AskResponse = z.infer<typeof askResponseSchema>;
