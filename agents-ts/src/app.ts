@@ -1,13 +1,10 @@
 import express, { type Express } from 'express';
 import { runAnalysis } from './agents/orchestrator.js';
-import { loadSettings } from './config.js';
 import { askRequestSchema, type AskRequest, type AskResponse } from './schemas.js';
 
 export type AnalyzeRunner = (request: AskRequest) => Promise<AskResponse>;
 
-const settings = loadSettings();
-
-const defaultRunner: AnalyzeRunner = (request) => runAnalysis(request, settings.timeoutMs);
+const defaultRunner: AnalyzeRunner = (request) => runAnalysis(request);
 
 export function createApp(runner: AnalyzeRunner = defaultRunner): Express {
   const app = express();

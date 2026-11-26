@@ -6,9 +6,11 @@ import {
   RuntimeState,
   SemanticEvent,
   SituationSpecification,
+  supportedModels,
   type SituationContext,
   type SituationHandler,
 } from '@mozaik-ai/core';
+import { loadSettings } from '../config.js';
 import { InMemoryTxRepository, type TxRepository } from '../db/repository.js';
 import type { AgentResponse, AskRequest, AskResponse } from '../schemas.js';
 
@@ -65,13 +67,27 @@ class AppState extends RuntimeState {
 
 const { initializeRuntime, join, leave, sendEvent } = defineRuntime<AppState>();
 
-initializeRuntime({ state: new AppState() });
+const settings = loadSettings();
+const selectedModel = supportedModels.find(
+  ({ specification }) => specification.name === settings.model,
+);
+if (!selectedModel) {
+  throw new Error(`unsupported AGENT_MODEL: ${settings.model}`);
+}
+if (!settings.geminiApiKey) {
+  console.warn('GEMINI_API_KEY is not set; LLM calls will fail until it is configured');
+}
+
+initializeRuntime({
+  state: new AppState(),
+  inferenceRunnerConfig: { supportedModels: [selectedModel] },
+});
 
 const defaultRepository = new InMemoryTxRepository();
 
 export async function runAnalysis(
   request: AskRequest,
-  timeoutMs = 10_000,
+  timeoutMs = settings.timeoutMs,
   repository: TxRepository = defaultRepository,
 ): Promise<AskResponse> {
   const requestId = randomUUID();
