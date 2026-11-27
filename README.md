@@ -215,14 +215,14 @@ Runs the GoPlus check and, if clean, TabICLv2. Does not call the agents service 
 
 ```json
 {
-  "address": "0x0000000000000000000000000000000000000000",
-  "tx_in_count": 214,
-  "eth_in": 3.87,
-  "distinct_in_counterparties": 186,
-  "first_in_ts": "2025-03-02",
-  "last_in_ts": "2025-09-18",
+  "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+  "tx_in_count": 100,
+  "eth_in": 64709.4112,
+  "distinct_in_counterparties": 110,
+  "first_in_ts": "2015-09-28",
+  "last_in_ts": "2023-03-07",
   "approval_events": 41,
-  "distinct_token_contracts": 12
+  "distinct_token_contracts": 27
 }
 ```
 
@@ -242,15 +242,17 @@ Runs the GoPlus check and, if clean, TabICLv2. Does not call the agents service 
 
 ```json
 {
-  "address": "0x0000000000000000000000000000000000000000",
-  "fraud_probability": 0.42,
-  "verdict": "clean",
+  "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+  "fraud_probability": 0.73,
+  "verdict": "fraud",
   "model": "tabicl-v2",
   "red_flag": false,
   "red_flags": [],
   "reason": null
 }
 ```
+
+GoPlus passes for this address, so the model runs. The score above is illustrative.
 
 ### Flagged example
 
@@ -615,21 +617,21 @@ curl -X POST http://127.0.0.1:5000/analyze/agents \
 
 ## `POST /ask`
 
-Same as `/analyze/agents`, but the client supplies the question. This is the only public endpoint where the user controls the agent task.
+Same as `/analyze/agents`, but the client supplies the question. This is the only public endpoint where the user controls the agent task. The responder still returns a fraud-risk summary for the provided wallet, not arbitrary Q&A.
 
 ### Request
 
 ```json
 {
-  "address": "0x0000000000000000000000000000000000000000",
-  "tx_in_count": 214,
-  "eth_in": 3.87,
-  "distinct_in_counterparties": 186,
-  "first_in_ts": "2025-03-02",
-  "last_in_ts": "2025-09-18",
+  "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+  "tx_in_count": 100,
+  "eth_in": 64709.4112,
+  "distinct_in_counterparties": 110,
+  "first_in_ts": "2015-09-28",
+  "last_in_ts": "2023-03-07",
   "approval_events": 41,
-  "distinct_token_contracts": 12,
-  "user_request": "When were the first and last transactions for this wallet?"
+  "distinct_token_contracts": 27,
+  "user_request": "Summarize activity and counterparties for this wallet?"
 }
 ```
 
@@ -641,15 +643,15 @@ Same shape as `/analyze/agents`.
 
 ### Full response example
 
-The values below are illustrative. The structure is the exact JSON returned to a Python API client.
+The values below are illustrative; agent strings are shown with line breaks for readability.
 
 ```json
 {
-  "address": "0x0000000000000000000000000000000000000000",
+  "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
   "prediction": {
-    "address": "0x0000000000000000000000000000000000000000",
-    "fraud_probability": 0.42,
-    "verdict": "clean",
+    "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+    "fraud_probability": 0.73,
+    "verdict": "fraud",
     "model": "tabicl-v2",
     "red_flag": false,
     "red_flags": [],
@@ -658,25 +660,29 @@ The values below are illustrative. The structure is the exact JSON returned to a
   "agents": [
     {
       "agent": "TxAnalyst",
-      "content": "No dated Etherscan activity was found for this wallet."
+      "content": "Etherscan data for this wallet shows first activity on 2015-09-28 and last activity on 2023-03-07.
+ There are 100 regular transactions, 100 internal transactions, and 100 token transactions across 110 distinct counterparties and 27 token symbols.
+ The largest ETH transaction is 40000.0 ETH, and 0.0% of received ETH was sent out. No inflow burst followed by an outflow was found."
     },
     {
       "agent": "Responder",
-      "content": "Summary: This wallet should be treated as clean because TabICL assigns a fraud probability of 0.42, below the 0.5 threshold (model.verdict, model.fraud_probability).
- GoPlus reports no flags for the supplied checks (goplus.zero_checks), and the supplied features contain no dated Etherscan activity
-(etherscan.activity_period), so the score reflects limited observed activity rather than a reason for further checks."
+      "content": "Summary: This wallet should be treated as fraud because TabICL assigns a fraud probability of 0.73 (model.verdict, model.fraud_probability).
+ GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols
+  (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols).
+ The model result is authoritative here: the wallet has little observed activity in the supplied window,
+ so the score reflects limited activity rather than a reason to question the verdict."
     }
   ],
   "evidence": [
     {
       "id": "model.verdict",
-      "claim": "Verdict: clean.",
+      "claim": "Verdict: fraud.",
       "source": "Model",
       "detail": "model: tabicl-v2"
     },
     {
       "id": "model.fraud_probability",
-      "claim": "Fraud probability: 0.42.",
+      "claim": "Fraud probability: 0.73.",
       "source": "Model",
       "detail": "model: tabicl-v2"
     },
@@ -687,46 +693,52 @@ The values below are illustrative. The structure is the exact JSON returned to a
       "detail": "model: tabicl-v2"
     },
     {
+      "id": "goplus.contract_address",
+      "claim": "GoPlus contract_address: 1.",
+      "source": "GoPlus",
+      "detail": "Raw address security result from GoPlus."
+    },
+    {
       "id": "goplus.zero_checks",
       "claim": "No GoPlus flags for these checks: cybercrime, money_laundering, number_of_malicious_contracts_created, gas_abuse,
-financial_crime, darkweb_transactions, reinit, contract_address, fake_kyc, fake_standard_interface, stealing_attack, blackmail_activities,
-sanctioned, malicious_mining_activities, mixer, fake_token, honeypot_related_address.",
+ financial_crime, darkweb_transactions, reinit, phishing_activities, fake_kyc, blacklist_doubt, fake_standard_interface, stealing_attack,
+ blackmail_activities, sanctioned, malicious_mining_activities, mixer, fake_token, honeypot_related_address.",
       "source": "GoPlus",
       "detail": "Raw address security result from GoPlus."
     },
     {
       "id": "etherscan.activity_period",
-      "claim": "No dated Etherscan activity was found.",
+      "claim": "First activity on 2015-09-28, last activity on 2023-03-07.",
       "source": "Etherscan data",
       "detail": "Timestamps from txlist/tokentx/txlistinternal, chain 1."
     },
     {
       "id": "etherscan.transaction_counts",
-      "claim": "0 regular transactions, 0 internal transactions, and 0 token transactions.",
+      "claim": "100 regular transactions, 100 internal transactions, and 100 token transactions.",
       "source": "Etherscan data",
       "detail": "Counted by our code from txlist/txlistinternal/tokentx."
     },
     {
       "id": "etherscan.counterparties",
-      "claim": "0 distinct counterparties.",
+      "claim": "110 distinct counterparties.",
       "source": "Etherscan data",
       "detail": "Unique from/to addresses counted by our code."
     },
     {
       "id": "etherscan.token_symbols",
-      "claim": "0 distinct token symbols.",
+      "claim": "27 distinct token symbols.",
       "source": "Etherscan data",
       "detail": "Unique tokenSymbol values counted by our code from tokentx."
     },
     {
       "id": "etherscan.largest_eth",
-      "claim": "Largest ETH transaction: 0.",
+      "claim": "Largest ETH transaction: 40000.0.",
       "source": "Etherscan data",
       "detail": "wei converted to ETH by our code from txlist/txlistinternal."
     },
     {
       "id": "etherscan.sent_received_ratio",
-      "claim": "Received ETH is zero, so the sent/received ratio is unavailable.",
+      "claim": "Sent 0.0% of received ETH.",
       "source": "Etherscan data",
       "detail": "Sent and received ETH counted by our code from normal and internal transactions."
     },
@@ -740,10 +752,10 @@ sanctioned, malicious_mining_activities, mixer, fake_token, honeypot_related_add
   "goplus_result": {
     "blacklist_doubt": "0",
     "blackmail_activities": "0",
-    "contract_address": "0",
+    "contract_address": "1",
     "cybercrime": "0",
     "darkweb_transactions": "0",
-    "data_source": "GoPlus",
+    "data_source": "",
     "fake_kyc": "0",
     "fake_standard_interface": "0",
     "fake_token": "0",
@@ -765,9 +777,10 @@ sanctioned, malicious_mining_activities, mixer, fake_token, honeypot_related_add
 Rendered `Responder.content`:
 
 ```text
-Summary: This wallet should be treated as clean because TabICL assigns a fraud probability of 0.42, below the 0.5 threshold (model.verdict, model.fraud_probability).
-GoPlus reports no flags for the supplied checks (goplus.zero_checks), and the supplied features contain no dated Etherscan activity
-(etherscan.activity_period), so the score reflects limited observed activity rather than a reason for further checks.
+Summary: This wallet should be treated as fraud because TabICL assigns a fraud probability of 0.73 (model.verdict, model.fraud_probability).
+GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols
+ (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols). The model result is authoritative here: the wallet has little observed activity in the supplied
+ window, so the score reflects limited activity rather than a reason to question the verdict.
 ```
 
 ### curl
@@ -775,7 +788,7 @@ GoPlus reports no flags for the supplied checks (goplus.zero_checks), and the su
 ```bash
 curl -X POST http://127.0.0.1:5000/ask \
   -H "Content-Type: application/json" \
-  -d '{"address":"0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045","tx_in_count":12,"eth_in":3.5,"distinct_in_counterparties":9,"first_in_ts":"2025-01-01","last_in_ts":"2025-06-01","approval_events":2,"distinct_token_contracts":3,"user_request":"Show the transaction history for this wallet."}'
+  -d '{"address":"0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045","tx_in_count":100,"eth_in":64709.4112,"distinct_in_counterparties":110,"first_in_ts":"2015-09-28","last_in_ts":"2023-03-07","approval_events":41,"distinct_token_contracts":27,"user_request":"Summarize activity and counterparties for this wallet."}'
 ```
 
 ## TypeScript service contract
