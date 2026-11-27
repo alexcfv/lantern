@@ -325,7 +325,10 @@ Clients do not send `user_request`, `prediction`, or `goplus_result`: Python bui
     },
     {
       "agent": "Responder",
-      "content": "Summary: This wallet should be treated as fraud because GoPlus flags blacklist_doubt and phishing_activities, and the ML model was not called (model.verdict, model.red_flags, goplus.blacklist_doubt, goplus.phishing_activities). Etherscan shows a long-lived address with 186 counterparties and 12 token symbols (etherscan.counterparties, etherscan.token_symbols), while no cybercrime, money laundering, darkweb, sanction, mixer, or malicious contract creation flags are present (goplus.zero_checks)."
+      "content": "Summary: This wallet should be treated as fraud because GoPlus flags blacklist_doubt and phishing_activities,
+and the ML model was not called (model.verdict, model.red_flags, goplus.blacklist_doubt, goplus.phishing_activities).
+Etherscan shows a long-lived address with 186 counterparties and 12 token symbols (etherscan.counterparties, etherscan.token_symbols),
+while no cybercrime, money laundering, darkweb, sanction, mixer, or malicious contract creation flags are present (goplus.zero_checks)."
     }
   ],
   "evidence": [
@@ -355,7 +358,9 @@ Clients do not send `user_request`, `prediction`, or `goplus_result`: Python bui
     },
     {
       "id": "goplus.zero_checks",
-      "claim": "No GoPlus flags for these checks: blackmail_activities, contract_address, cybercrime, darkweb_transactions, fake_kyc, fake_standard_interface, fake_token, financial_crime, gas_abuse, honeypot_related_address, malicious_mining_activities, mixer, money_laundering, number_of_malicious_contracts_created, reinit, sanctioned, stealing_attack.",
+      "claim": "No GoPlus flags for these checks: blackmail_activities, contract_address, cybercrime,
+darkweb_transactions, fake_kyc, fake_standard_interface, fake_token, financial_crime, gas_abuse, honeypot_related_address,
+malicious_mining_activities, mixer, money_laundering, number_of_malicious_contracts_created, reinit, sanctioned, stealing_attack.",
       "source": "GoPlus",
       "detail": "Raw address security result from GoPlus."
     },
@@ -430,7 +435,9 @@ Clients do not send `user_request`, `prediction`, or `goplus_result`: Python bui
 Rendered `Responder.content`:
 
 ```text
-Summary: This wallet should be treated as fraud because GoPlus flags blacklist_doubt and phishing_activities, and the ML model was not called (model.verdict, model.red_flags, goplus.blacklist_doubt, goplus.phishing_activities). Etherscan shows a long-lived address with 186 counterparties and 12 token symbols (etherscan.counterparties, etherscan.token_symbols), while no cybercrime, money laundering, darkweb, sanction, mixer, or malicious contract creation flags are present (goplus.zero_checks).
+Summary: This wallet should be treated as fraud because GoPlus flags blacklist_doubt and phishing_activities, and the ML model was not called (model.verdict, model.red_flags,
+goplus.blacklist_doubt, goplus.phishing_activities). Etherscan shows a long-lived address with 186 counterparties and 12 token symbols (etherscan.counterparties,
+etherscan.token_symbols), while no cybercrime, money laundering, darkweb, sanction, mixer, or malicious contract creation flags are present (goplus.zero_checks).
 ```
 
 `prediction` is the same object as the `/analyze` response. `goplus_result` is the raw flat GoPlus map with string values. `evidence` is produced by the agents service.
@@ -471,11 +478,17 @@ GoPlus and Etherscan values below were observed for `0xd8dA6BF26964aF9D7eEd9e03E
   "agents": [
     {
       "agent": "TxAnalyst",
-      "content": "Etherscan data for this wallet shows first activity on 2015-09-28 and last activity on 2023-03-07. There are 100 regular transactions, 100 internal transactions, and 100 token transactions across 110 distinct counterparties and 27 token symbols. The largest ETH transaction is 40000.0 ETH, and 0.0% of received ETH was sent out. No inflow burst followed by an outflow was found."
+      "content": "Etherscan data for this wallet shows first activity on 2015-09-28 and last activity on 2023-03-07.
+There are 100 regular transactions, 100 internal transactions, and 100 token transactions across 110 distinct counterparties and 27 token symbols.
+The largest ETH transaction is 40000.0 ETH, and 0.0% of received ETH was sent out. No inflow burst followed by an outflow was found."
     },
     {
       "agent": "Responder",
-      "content": "Summary: This wallet should be treated as fraud because TabICL assigns a fraud probability of 0.73 (model.verdict, model.fraud_probability). GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols). The model result is authoritative here: the wallet has little observed activity in the supplied window, so the score reflects limited activity rather than a reason to question the verdict."
+      "content": "Summary: This wallet should be treated as fraud because TabICL assigns a fraud probability of 0.73 (model.verdict, model.fraud_probability).
+GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols
+ (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols).
+The model result is authoritative here: the wallet has little observed activity in the supplied window,
+so the score reflects limited activity rather than a reason to question the verdict."
     }
   ],
   "evidence": [
@@ -505,7 +518,9 @@ GoPlus and Etherscan values below were observed for `0xd8dA6BF26964aF9D7eEd9e03E
     },
     {
       "id": "goplus.zero_checks",
-      "claim": "No GoPlus flags for these checks: cybercrime, money_laundering, number_of_malicious_contracts_created, gas_abuse, financial_crime, darkweb_transactions, reinit, phishing_activities, fake_kyc, blacklist_doubt, fake_standard_interface, stealing_attack, blackmail_activities, sanctioned, malicious_mining_activities, mixer, fake_token, honeypot_related_address.",
+      "claim": "No GoPlus flags for these checks: cybercrime, money_laundering, number_of_malicious_contracts_created, gas_abuse,
+financial_crime, darkweb_transactions, reinit, phishing_activities, fake_kyc, blacklist_doubt, fake_standard_interface, stealing_attack,
+blackmail_activities, sanctioned, malicious_mining_activities, mixer, fake_token, honeypot_related_address.",
       "source": "GoPlus",
       "detail": "Raw address security result from GoPlus."
     },
@@ -580,7 +595,10 @@ GoPlus and Etherscan values below were observed for `0xd8dA6BF26964aF9D7eEd9e03E
 Rendered `Responder.content`:
 
 ```text
-Summary: This wallet should be treated as fraud because TabICL assigns a fraud probability of 0.73 (model.verdict, model.fraud_probability). GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols). The model result is authoritative here: the wallet has little observed activity in the supplied window, so the score reflects limited activity rather than a reason to question the verdict.
+Summary: This wallet should be treated as fraud because TabICL assigns a fraud probability of 0.73 (model.verdict, model.fraud_probability).
+GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols
+ (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols). The model result is authoritative here: the wallet has little observed activity in the supplied
+ window, so the score reflects limited activity rather than a reason to question the verdict.
 ```
 
 In this example `red_flag` is `false`, `fraud_probability` is populated by TabICL, and `model` is `tabicl-v2`. In the previous example GoPlus short-circuited the pipeline and `fraud_probability` stayed `null`.
@@ -642,7 +660,9 @@ The values below are illustrative. The structure is the exact JSON returned to a
     },
     {
       "agent": "Responder",
-      "content": "Summary: This wallet should be treated as clean because TabICL assigns a fraud probability of 0.42, below the 0.5 threshold (model.verdict, model.fraud_probability). GoPlus reports no flags for the supplied checks (goplus.zero_checks), and the supplied features contain no dated Etherscan activity (etherscan.activity_period), so the score reflects limited observed activity rather than a reason for further checks."
+      "content": "Summary: This wallet should be treated as clean because TabICL assigns a fraud probability of 0.42, below the 0.5 threshold (model.verdict, model.fraud_probability).
+ GoPlus reports no flags for the supplied checks (goplus.zero_checks), and the supplied features contain no dated Etherscan activity
+(etherscan.activity_period), so the score reflects limited observed activity rather than a reason for further checks."
     }
   ],
   "evidence": [
@@ -666,7 +686,9 @@ The values below are illustrative. The structure is the exact JSON returned to a
     },
     {
       "id": "goplus.zero_checks",
-      "claim": "No GoPlus flags for these checks: cybercrime, money_laundering, number_of_malicious_contracts_created, gas_abuse, financial_crime, darkweb_transactions, reinit, contract_address, fake_kyc, fake_standard_interface, stealing_attack, blackmail_activities, sanctioned, malicious_mining_activities, mixer, fake_token, honeypot_related_address.",
+      "claim": "No GoPlus flags for these checks: cybercrime, money_laundering, number_of_malicious_contracts_created, gas_abuse,
+financial_crime, darkweb_transactions, reinit, contract_address, fake_kyc, fake_standard_interface, stealing_attack, blackmail_activities,
+sanctioned, malicious_mining_activities, mixer, fake_token, honeypot_related_address.",
       "source": "GoPlus",
       "detail": "Raw address security result from GoPlus."
     },
@@ -741,7 +763,9 @@ The values below are illustrative. The structure is the exact JSON returned to a
 Rendered `Responder.content`:
 
 ```text
-Summary: This wallet should be treated as clean because TabICL assigns a fraud probability of 0.42, below the 0.5 threshold (model.verdict, model.fraud_probability). GoPlus reports no flags for the supplied checks (goplus.zero_checks), and the supplied features contain no dated Etherscan activity (etherscan.activity_period), so the score reflects limited observed activity rather than a reason for further checks.
+Summary: This wallet should be treated as clean because TabICL assigns a fraud probability of 0.42, below the 0.5 threshold (model.verdict, model.fraud_probability).
+GoPlus reports no flags for the supplied checks (goplus.zero_checks), and the supplied features contain no dated Etherscan activity
+(etherscan.activity_period), so the score reflects limited observed activity rather than a reason for further checks.
 ```
 
 ### curl
