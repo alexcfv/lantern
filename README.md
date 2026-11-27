@@ -627,6 +627,110 @@ Internal agent failure or timeout: `502` with `{ "error": "agents unavailable", 
 
 Health check: `GET /health` returns `{"status":"ok"}`.
 
+## Response value reference
+
+This section lists the values a third-party client can receive from the Python API. Any value not listed here is outside the current contract and should be treated as undefined.
+
+### `AnalyzeResponse`
+
+Returned directly by `/analyze` and nested as `prediction` in `/ask` and `/analyze/agents`.
+
+| Field | Possible values | Meaning |
+| --- | --- | --- |
+| `address` | non-empty string | Echo of the requested address |
+| `fraud_probability` | `null` | GoPlus red flag, or stub backend |
+| | float in `[0, 1]` | TabICLv2 class-1 probability |
+| `verdict` | `clean` | No GoPlus flag and TabICL score `< 0.5` |
+| | `fraud` | No GoPlus flag and TabICL score `>= 0.5` |
+| | `scam` | GoPlus red flag; model was not called |
+| | `unknown` | Stub backend; no GoPlus flag |
+| `model` | `tabicl-v2` | TabICLv2 produced the score |
+| | `goplus` | GoPlus produced the verdict |
+| | `stub` | Fallback backend was used |
+| `red_flag` | `true` / `false` | Whether GoPlus returned at least one configured flag |
+| `red_flags` | `[]` | Empty when `red_flag` is `false` |
+| | subset of the red-flag list below | Non-empty when `red_flag` is `true` |
+| `reason` | `null` | No GoPlus shortcut reason |
+| | `"GoPlus: <flags>"` | Comma-separated flag names for a `scam` verdict |
+
+Allowed `red_flags` values:
+
+```text
+blacklist_doubt, phishing_activities, blackmail_activities, stealing_attack,
+financial_crime, cybercrime, darkweb_transactions, money_laundering,
+honeypot_related_address, fake_kyc, sanctioned, malicious_mining_activities,
+gas_abuse
+```
+
+### Agent response envelope
+
+Returned by `/ask` and `/analyze/agents`.
+
+| Field | Possible values | Meaning |
+| --- | --- | --- |
+| `address` | non-empty string | Echo of the requested address |
+| `prediction` | `AnalyzeResponse` object | Same object as `/analyze` |
+| `agents` | array of `{agent, content}` | Agent outputs in execution order |
+| `goplus_result` | flat object of string values | Raw GoPlus result; `{}` if GoPlus returned nothing or failed |
+
+Current `agents[].agent` values:
+
+| Value | Source |
+| --- | --- |
+| `TxAnalyst` | Etherscan-backed transaction facts |
+| `Responder` | Final written assessment |
+
+`agents[].content` is free-form English text. It may be `"No additional facts were requested."` for `TxAnalyst` if no wallet history was fetched. Consumers should not parse this field programmatically.
+
+### `evidence`
+
+`evidence` is an array of objects with exactly these fields:
+
+```json
+{"id": "string", "claim": "string", "source": "string", "detail": "string"}
+```
+
+Use `id` and `source` for programmatic handling. `claim` and `detail` are human-readable text and are not stable machine values.
+
+| `source` | Possible `id` values | When present |
+| --- | --- | --- |
+| `Model` | `model.verdict` | Always |
+| | `model.fraud_probability` | Only when `fraud_probability` is not `null` |
+| | `model.red_flags` | Always |
+| `GoPlus` | `goplus.<field>` for each field with value `"1"` | For each triggered GoPlus field |
+| | `goplus.zero_checks` | When at least one GoPlus field has value `"0"` |
+| `Etherscan data` | `etherscan.activity_period` | When TxAnalyst fetched history |
+| | `etherscan.transaction_counts` | When TxAnalyst fetched history |
+| | `etherscan.counterparties` | When TxAnalyst fetched history |
+| | `etherscan.token_symbols` | When TxAnalyst fetched history |
+| | `etherscan.largest_eth` | When TxAnalyst fetched history |
+| | `etherscan.sent_received_ratio` | When TxAnalyst fetched history |
+| | `etherscan.burst_gap` | When TxAnalyst fetched history |
+
+### `goplus_result`
+
+`goplus_result` is passed through without conversion. Values remain strings, including boolean-like flags.
+
+| Value shape | Meaning |
+| --- | --- |
+| `"1"` | Flag/check is true |
+| `"0"` | Flag/check is false |
+| `"GoPlus"` | Metadata value of `data_source`; not a fraud signal |
+| `{}` | GoPlus unavailable, invalid response, or no result |
+
+Known keys:
+
+```text
+blacklist_doubt, blackmail_activities, contract_address, cybercrime,
+darkweb_transactions, data_source, fake_kyc, fake_standard_interface,
+fake_token, financial_crime, gas_abuse, honeypot_related_address,
+malicious_mining_activities, mixer, money_laundering,
+number_of_malicious_contracts_created, phishing_activities, reinit,
+sanctioned, stealing_attack
+```
+
+Clients should tolerate additional keys because the raw map is forwarded as-is.
+
 ## Feature engineering
 
 Features are built in `config.json` order. Count fields are transformed with `log1p`; derived day fields are clipped to `[-1, 512]`.
