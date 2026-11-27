@@ -283,7 +283,7 @@ Because the prompt requires `ask_tx_analyst`, this endpoint normally uses the fu
 ### Internal prompt
 
 ```text
-Provide a comprehensive fraud-risk assessment of this exact wallet. Use only the supplied ML prediction, the GoPlus security result, and Etherscan facts you retrieve for this address. Explain which signals support the verdict, which contradict it or are missing, and what the transaction history, counterparties and token approvals add. Separate confirmed facts from assumptions, cite only evidence IDs you actually used, state limitations and uncertainty, do not recompute or override the ML verdict. Always call ask_tx_analyst for this wallet before answering. Answer in English with sections: Summary, Supporting evidence, Contradicting or missing evidence, Next checks.
+Provide a concise fraud-risk summary of this exact wallet. Use only the supplied ML prediction, the GoPlus security result, and Etherscan facts you retrieve for this address. Treat the ML prediction as authoritative: do not question, verify, recompute, or override it. If the wallet has little observed activity, explain that the score reflects limited activity. Cite only evidence IDs you actually used. Always call ask_tx_analyst for this wallet before answering. Answer in English with a single Summary section and no next steps.
 ```
 
 ### Request
@@ -325,7 +325,7 @@ Clients do not send `user_request`, `prediction`, or `goplus_result`: Python bui
     },
     {
       "agent": "Responder",
-      "content": "Summary: GoPlus flags this wallet as scam because of blacklist_doubt and phishing_activities; the ML model was not called (model.verdict, model.red_flags).\nSupporting evidence: the two GoPlus flags are explicit (goplus.blacklist_doubt, goplus.phishing_activities), and Etherscan shows a long-lived address with 186 counterparties and 12 token symbols (etherscan.counterparties, etherscan.token_symbols).\nContradicting or missing evidence: GoPlus reports no cybercrime, money laundering, darkweb, sanction, mixer, or malicious contract creation flags (goplus.zero_checks), and no inflow burst followed by an outflow was found (etherscan.burst_gap).\nNext checks: inspect the phishing reports and the largest counterparties before treating this address as trusted."
+      "content": "Summary: This wallet should be treated as fraud because GoPlus flags blacklist_doubt and phishing_activities, and the ML model was not called (model.verdict, model.red_flags, goplus.blacklist_doubt, goplus.phishing_activities). Etherscan shows a long-lived address with 186 counterparties and 12 token symbols (etherscan.counterparties, etherscan.token_symbols), while no cybercrime, money laundering, darkweb, sanction, mixer, or malicious contract creation flags are present (goplus.zero_checks)."
     }
   ],
   "evidence": [
@@ -430,10 +430,7 @@ Clients do not send `user_request`, `prediction`, or `goplus_result`: Python bui
 Rendered `Responder.content`:
 
 ```text
-Summary: GoPlus flags this wallet as scam because of blacklist_doubt and phishing_activities; the ML model was not called (model.verdict, model.red_flags).
-Supporting evidence: the two GoPlus flags are explicit (goplus.blacklist_doubt, goplus.phishing_activities), and Etherscan shows a long-lived address with 186 counterparties and 12 token symbols (etherscan.counterparties, etherscan.token_symbols).
-Contradicting or missing evidence: GoPlus reports no cybercrime, money laundering, darkweb, sanction, mixer, or malicious contract creation flags (goplus.zero_checks), and no inflow burst followed by an outflow was found (etherscan.burst_gap).
-Next checks: inspect the phishing reports and the largest counterparties before treating this address as trusted.
+Summary: This wallet should be treated as fraud because GoPlus flags blacklist_doubt and phishing_activities, and the ML model was not called (model.verdict, model.red_flags, goplus.blacklist_doubt, goplus.phishing_activities). Etherscan shows a long-lived address with 186 counterparties and 12 token symbols (etherscan.counterparties, etherscan.token_symbols), while no cybercrime, money laundering, darkweb, sanction, mixer, or malicious contract creation flags are present (goplus.zero_checks).
 ```
 
 `prediction` is the same object as the `/analyze` response. `goplus_result` is the raw flat GoPlus map with string values. `evidence` is produced by the agents service.
@@ -478,7 +475,7 @@ GoPlus and Etherscan values below were observed for `0xd8dA6BF26964aF9D7eEd9e03E
     },
     {
       "agent": "Responder",
-      "content": "Summary: GoPlus does not flag this wallet, but TabICL assigns a fraud probability of 0.73, so the prediction is fraud (model.verdict, model.fraud_probability).\nSupporting evidence: GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols).\nContradicting or missing evidence: there is no blacklist_doubt or phishing_activities flag, only 0.0% of received ETH was sent out (etherscan.sent_received_ratio), and no inflow burst followed by an outflow was found (etherscan.burst_gap). The GoPlus contract_address field is 1, but it is not in the configured red-flag list (goplus.contract_address).\nNext checks: verify why the model score is high for this address and confirm the contract flag in a block explorer before acting on the score."
+      "content": "Summary: This wallet should be treated as fraud because TabICL assigns a fraud probability of 0.73 (model.verdict, model.fraud_probability). GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols). The model result is authoritative here: the wallet has little observed activity in the supplied window, so the score reflects limited activity rather than a reason to question the verdict."
     }
   ],
   "evidence": [
@@ -583,10 +580,7 @@ GoPlus and Etherscan values below were observed for `0xd8dA6BF26964aF9D7eEd9e03E
 Rendered `Responder.content`:
 
 ```text
-Summary: GoPlus does not flag this wallet, but TabICL assigns a fraud probability of 0.73, so the prediction is fraud (model.verdict, model.fraud_probability).
-Supporting evidence: GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols).
-Contradicting or missing evidence: there is no blacklist_doubt or phishing_activities flag, only 0.0% of received ETH was sent out (etherscan.sent_received_ratio), and no inflow burst followed by an outflow was found (etherscan.burst_gap). The GoPlus contract_address field is 1, but it is not in the configured red-flag list (goplus.contract_address).
-Next checks: verify why the model score is high for this address and confirm the contract flag in a block explorer before acting on the score.
+Summary: This wallet should be treated as fraud because TabICL assigns a fraud probability of 0.73 (model.verdict, model.fraud_probability). GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols). The model result is authoritative here: the wallet has little observed activity in the supplied window, so the score reflects limited activity rather than a reason to question the verdict.
 ```
 
 In this example `red_flag` is `false`, `fraud_probability` is populated by TabICL, and `model` is `tabicl-v2`. In the previous example GoPlus short-circuited the pipeline and `fraud_probability` stayed `null`.
@@ -648,7 +642,7 @@ The values below are illustrative. The structure is the exact JSON returned to a
     },
     {
       "agent": "Responder",
-      "content": "Summary: The ML model classifies this wallet as clean with a fraud probability of 0.42 (model.verdict, model.fraud_probability).\nSupporting evidence: GoPlus reports no flags for the supplied checks (goplus.zero_checks), and no dated Etherscan activity was found (etherscan.activity_period).\nContradicting or missing evidence: there is no transaction history to confirm counterparties or token activity, so the answer is limited to the supplied features and GoPlus result.\nNext checks: verify the address with a block explorer or provide an address with transaction history."
+      "content": "Summary: This wallet should be treated as clean because TabICL assigns a fraud probability of 0.42, below the 0.5 threshold (model.verdict, model.fraud_probability). GoPlus reports no flags for the supplied checks (goplus.zero_checks), and the supplied features contain no dated Etherscan activity (etherscan.activity_period), so the score reflects limited observed activity rather than a reason for further checks."
     }
   ],
   "evidence": [
@@ -747,10 +741,7 @@ The values below are illustrative. The structure is the exact JSON returned to a
 Rendered `Responder.content`:
 
 ```text
-Summary: The ML model classifies this wallet as clean with a fraud probability of 0.42 (model.verdict, model.fraud_probability).
-Supporting evidence: GoPlus reports no flags for the supplied checks (goplus.zero_checks), and no dated Etherscan activity was found (etherscan.activity_period).
-Contradicting or missing evidence: there is no transaction history to confirm counterparties or token activity, so the answer is limited to the supplied features and GoPlus result.
-Next checks: verify the address with a block explorer or provide an address with transaction history.
+Summary: This wallet should be treated as clean because TabICL assigns a fraud probability of 0.42, below the 0.5 threshold (model.verdict, model.fraud_probability). GoPlus reports no flags for the supplied checks (goplus.zero_checks), and the supplied features contain no dated Etherscan activity (etherscan.activity_period), so the score reflects limited observed activity rather than a reason for further checks.
 ```
 
 ### curl

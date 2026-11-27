@@ -350,7 +350,7 @@ export async function runAnalysis(
     name: 'Responder',
     capabilities: ['inference'],
     instruction:
-      'Answer in English using only the ML verdict, the GoPlus result, and, when needed, facts about the provided wallet from TxAnalyst. Do not answer questions about other wallets or global lists. Never recompute the verdict.',
+      'Answer in English with a single Summary section and no next steps. Use only the ML verdict, the GoPlus result, and, when needed, facts about the provided wallet from TxAnalyst. Treat the ML verdict as authoritative; do not question, verify, recompute, or override it. If the wallet has little observed activity, explain that the score reflects limited activity. Do not answer questions about other wallets or global lists.',
     tools: [askTxAnalystTool],
     handlers: responderHandlers,
   });

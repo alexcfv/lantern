@@ -11,16 +11,14 @@ from eth_fraud.services.analyzer import Analyzer
 logger = logging.getLogger(__name__)
 
 INTERNAL_AGENT_QUESTION = (
-    "Provide a comprehensive fraud-risk assessment of this exact wallet. "
+    "Provide a concise fraud-risk summary of this exact wallet. "
     "Use only the supplied ML prediction, the GoPlus security result, and "
-    "Etherscan facts you retrieve for this address. Explain which signals "
-    "support the verdict, which contradict it or are missing, and what the "
-    "transaction history, counterparties and token approvals add. Separate "
-    "confirmed facts from assumptions, cite only evidence IDs you actually "
-    "used, state limitations and uncertainty, do not recompute or override "
-    "the ML verdict. Always call ask_tx_analyst for this wallet before answering. "
-    "Answer in English with sections: Summary, Supporting "
-    "evidence, Contradicting or missing evidence, Next checks."
+    "Etherscan facts you retrieve for this address. Treat the ML prediction "
+    "as authoritative: do not question, verify, recompute, or override it. "
+    "If the wallet has little observed activity, explain that the score "
+    "reflects limited activity. Cite only evidence IDs you actually used. "
+    "Always call ask_tx_analyst for this wallet before answering. "
+    "Answer in English with a single Summary section and no next steps."
 )
 
 
