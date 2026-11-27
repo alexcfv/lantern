@@ -320,7 +320,9 @@ Clients do not send `user_request`, `prediction`, or `goplus_result`: Python bui
   "agents": [
     {
       "agent": "TxAnalyst",
-      "content": "Etherscan data for this wallet shows first activity on 2015-09-28 and last activity on 2023-03-07. There are 214 regular transactions, 9 internal transactions, and 41 token transactions across 186 distinct counterparties and 12 token symbols. The largest ETH transaction is 3.87 ETH, and 61.2% of received ETH was sent out. No inflow burst followed by an outflow was found."
+      "content": "Etherscan data for this wallet shows first activity on 2015-09-28 and last activity on 2023-03-07.
+There are 214 regular transactions, 9 internal transactions, and 41 token transactions across 186 distinct counterparties and 12 token symbols.
+The largest ETH transaction is 3.87 ETH, and 61.2% of received ETH was sent out. No inflow burst followed by an outflow was found."
 
     },
     {
