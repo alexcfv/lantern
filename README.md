@@ -667,7 +667,6 @@ If GoPlus is unavailable or returns an invalid response, the checker fails open:
 ## Security notes
 
 - `GEMINI_API_KEY` and `ETHERSCAN_API_KEY` are secrets and must stay in `agents-ts/.env`, which is not tracked.
-- A previously tracked `.env` contained a Gemini key; rotate that key.
 - `MOZAIK_API_KEY` is not configured, so Mozaik cloud telemetry is disabled.
 - Flask JSON output uses `ensure_ascii = False`, so Cyrillic and other non-ASCII text are not escaped.
 - Agents cannot inspect arbitrary addresses through tools; `get_transaction_history` validates the address against the request.
