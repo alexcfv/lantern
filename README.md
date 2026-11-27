@@ -320,11 +320,16 @@ Clients do not send `user_request`, `prediction`, or `goplus_result`: Python bui
   "agents": [
     {
       "agent": "TxAnalyst",
-      "content": "Etherscan data for this wallet shows first activity on 2015-09-28 and last activity on 2023-03-07. There are 214 regular transactions, 9 internal transactions, and 41 token transactions across 186 distinct counterparties and 12 token symbols. The largest ETH transaction is 3.87 ETH, and 61.2% of received ETH was sent out. No inflow burst followed by an outflow was found."
+      "content": "Etherscan data for this wallet shows first activity on 2015-09-28 and last activity on 2023-03-07.
+There are 214 regular transactions, 9 internal transactions, and 41 token transactions across 186 distinct counterparties and 12 token symbols.
+The largest ETH transaction is 3.87 ETH, and 61.2% of received ETH was sent out. No inflow burst followed by an outflow was found."
     },
     {
       "agent": "Responder",
-      "content": "Summary: GoPlus flags this wallet as scam because of blacklist_doubt and phishing_activities; the ML model was not called (model.verdict, model.red_flags).\nSupporting evidence: the two GoPlus flags are explicit (goplus.blacklist_doubt, goplus.phishing_activities), and Etherscan shows a long-lived address with 186 counterparties and 12 token symbols (etherscan.counterparties, etherscan.token_symbols).\nContradicting or missing evidence: GoPlus reports no cybercrime, money laundering, darkweb, sanction, mixer, or malicious contract creation flags (goplus.zero_checks), and no inflow burst followed by an outflow was found (etherscan.burst_gap).\nNext checks: inspect the phishing reports and the largest counterparties before treating this address as trusted."
+      "content": "Summary: GoPlus flags this wallet as scam because of blacklist_doubt and phishing_activities; the ML model was not called (model.verdict, model.red_flags).\n
+Supporting evidence: the two GoPlus flags are explicit (goplus.blacklist_doubt, goplus.phishing_activities), and Etherscan shows a long-lived address with 186 counterparties and 12 token symbols (etherscan.counterparties, etherscan.token_symbols).\n
+Contradicting or missing evidence: GoPlus reports no cybercrime, money laundering, darkweb, sanction, mixer, or malicious contract creation flags (goplus.zero_checks), and no inflow burst followed by an outflow was found (etherscan.burst_gap).\n
+Next checks: inspect the phishing reports and the largest counterparties before treating this address as trusted."
     }
   ],
   "evidence": [
@@ -354,7 +359,9 @@ Clients do not send `user_request`, `prediction`, or `goplus_result`: Python bui
     },
     {
       "id": "goplus.zero_checks",
-      "claim": "No GoPlus flags for these checks: blackmail_activities, contract_address, cybercrime, darkweb_transactions, fake_kyc, fake_standard_interface, fake_token, financial_crime, gas_abuse, honeypot_related_address, malicious_mining_activities, mixer, money_laundering, number_of_malicious_contracts_created, reinit, sanctioned, stealing_attack.",
+      "claim": "No GoPlus flags for these checks: blackmail_activities, contract_address, cybercrime, darkweb_transactions, fake_kyc, fake_standard_interface, fake_token,
+financial_crime, gas_abuse, honeypot_related_address, malicious_mining_activities, mixer, money_laundering, number_of_malicious_contracts_created,
+ reinit, sanctioned, stealing_attack.",
       "source": "GoPlus",
       "detail": "Raw address security result from GoPlus."
     },
@@ -494,7 +501,10 @@ The values below are illustrative. The structure is the exact JSON returned to a
     },
     {
       "agent": "Responder",
-      "content": "Summary: The ML model classifies this wallet as clean with a fraud probability of 0.42 (model.verdict, model.fraud_probability).\nSupporting evidence: GoPlus reports no flags for the supplied checks (goplus.zero_checks), and no dated Etherscan activity was found (etherscan.activity_period).\nContradicting or missing evidence: there is no transaction history to confirm counterparties or token activity, so the answer is limited to the supplied features and GoPlus result.\nNext checks: verify the address with a block explorer or provide an address with transaction history."
+      "content": "Summary: The ML model classifies this wallet as clean with a fraud probability of 0.42 (model.verdict, model.fraud_probability).\n
+Supporting evidence: GoPlus reports no flags for the supplied checks (goplus.zero_checks), and no dated Etherscan activity was found (etherscan.activity_period).\n
+Contradicting or missing evidence: there is no transaction history to confirm counterparties or token activity, so the answer is limited to the supplied features and GoPlus result.\n
+Next checks: verify the address with a block explorer or provide an address with transaction history."
     }
   ],
   "evidence": [
@@ -518,7 +528,9 @@ The values below are illustrative. The structure is the exact JSON returned to a
     },
     {
       "id": "goplus.zero_checks",
-      "claim": "No GoPlus flags for these checks: cybercrime, money_laundering, number_of_malicious_contracts_created, gas_abuse, financial_crime, darkweb_transactions, reinit, contract_address, fake_kyc, fake_standard_interface, stealing_attack, blackmail_activities, sanctioned, malicious_mining_activities, mixer, fake_token, honeypot_related_address.",
+      "claim": "No GoPlus flags for these checks: cybercrime, money_laundering, number_of_malicious_contracts_created, gas_abuse, financial_crime,
+darkweb_transactions, reinit, contract_address, fake_kyc, fake_standard_interface, stealing_attack, blackmail_activities, sanctioned,
+malicious_mining_activities, mixer, fake_token, honeypot_related_address.",
       "source": "GoPlus",
       "detail": "Raw address security result from GoPlus."
     },
