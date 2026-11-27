@@ -221,7 +221,7 @@ Runs the GoPlus check and, if clean, TabICLv2. Does not call the agents service 
   "distinct_in_counterparties": 110,
   "first_in_ts": "2015-09-28",
   "last_in_ts": "2023-03-07",
-  "approval_events": 41,
+  "approval_events": 0,
   "distinct_token_contracts": 27
 }
 ```
@@ -243,8 +243,8 @@ Runs the GoPlus check and, if clean, TabICLv2. Does not call the agents service 
 ```json
 {
   "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
-  "fraud_probability": 0.73,
-  "verdict": "fraud",
+  "fraud_probability": 0.4887,
+  "verdict": "clean",
   "model": "tabicl-v2",
   "red_flag": false,
   "red_flags": [],
@@ -252,7 +252,7 @@ Runs the GoPlus check and, if clean, TabICLv2. Does not call the agents service 
 }
 ```
 
-GoPlus passes for this address, so the model runs. The score above is illustrative.
+GoPlus passes for this address, so the model runs. The score above is from local inference with `approval_events: 0`.
 
 ### Flagged example
 
@@ -448,7 +448,7 @@ etherscan.token_symbols), while no cybercrime, money laundering, darkweb, sancti
 
 ### Clean-wallet example: GoPlus passes, TabICL computes risk score
 
-GoPlus and Etherscan values below were observed for `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045`. The TabICL score is illustrative.
+GoPlus and Etherscan values below were observed for `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045`. The TabICL score is from local inference with `approval_events: 0`.
 
 #### Request
 
@@ -460,7 +460,7 @@ GoPlus and Etherscan values below were observed for `0xd8dA6BF26964aF9D7eEd9e03E
   "distinct_in_counterparties": 110,
   "first_in_ts": "2015-09-28",
   "last_in_ts": "2023-03-07",
-  "approval_events": 41,
+  "approval_events": 0,
   "distinct_token_contracts": 27
 }
 ```
@@ -472,8 +472,8 @@ GoPlus and Etherscan values below were observed for `0xd8dA6BF26964aF9D7eEd9e03E
   "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
   "prediction": {
     "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
-    "fraud_probability": 0.73,
-    "verdict": "fraud",
+    "fraud_probability": 0.4887,
+    "verdict": "clean",
     "model": "tabicl-v2",
     "red_flag": false,
     "red_flags": [],
@@ -488,23 +488,23 @@ The largest ETH transaction is 40000.0 ETH, and 0.0% of received ETH was sent ou
     },
     {
       "agent": "Responder",
-      "content": "Summary: This wallet should be treated as fraud because TabICL assigns a fraud probability of 0.73 (model.verdict, model.fraud_probability).
+      "content": "Summary: This wallet should be treated as clean because TabICL assigns a fraud probability of 0.4887, below the 0.5 threshold (model.verdict, model.fraud_probability).
 GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols
  (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols).
-The model result is authoritative here: the wallet has little observed activity in the supplied window,
-so the score reflects limited activity rather than a reason to question the verdict."
+The ML verdict is authoritative here and matches the external checks."
+
     }
   ],
   "evidence": [
     {
       "id": "model.verdict",
-      "claim": "Verdict: fraud.",
+      "claim": "Verdict: clean.",
       "source": "Model",
       "detail": "model: tabicl-v2"
     },
     {
       "id": "model.fraud_probability",
-      "claim": "Fraud probability: 0.73.",
+      "claim": "Fraud probability: 0.4887.",
       "source": "Model",
       "detail": "model: tabicl-v2"
     },
@@ -599,10 +599,9 @@ blackmail_activities, sanctioned, malicious_mining_activities, mixer, fake_token
 Rendered `Responder.content`:
 
 ```text
-Summary: This wallet should be treated as fraud because TabICL assigns a fraud probability of 0.73 (model.verdict, model.fraud_probability).
+Summary: This wallet should be treated as clean because TabICL assigns a fraud probability of 0.4887, below the 0.5 threshold (model.verdict, model.fraud_probability).
 GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols
- (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols). The model result is authoritative here: the wallet has little observed activity in the supplied
- window, so the score reflects limited activity rather than a reason to question the verdict.
+ (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols). The ML verdict is authoritative here and matches the external checks.
 ```
 
 In this example `red_flag` is `false`, `fraud_probability` is populated by TabICL, and `model` is `tabicl-v2`. In the previous example GoPlus short-circuited the pipeline and `fraud_probability` stayed `null`.
@@ -629,7 +628,7 @@ Same as `/analyze/agents`, but the client supplies the question. This is the onl
   "distinct_in_counterparties": 110,
   "first_in_ts": "2015-09-28",
   "last_in_ts": "2023-03-07",
-  "approval_events": 41,
+  "approval_events": 0,
   "distinct_token_contracts": 27,
   "user_request": "Summarize activity and counterparties for this wallet?"
 }
@@ -643,15 +642,15 @@ Same shape as `/analyze/agents`.
 
 ### Full response example
 
-The values below are illustrative; agent strings are shown with line breaks for readability.
+Agent strings are shown with line breaks for readability; the score is from local inference with `approval_events: 0`.
 
 ```json
 {
   "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
   "prediction": {
     "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
-    "fraud_probability": 0.73,
-    "verdict": "fraud",
+    "fraud_probability": 0.4887,
+    "verdict": "clean",
     "model": "tabicl-v2",
     "red_flag": false,
     "red_flags": [],
@@ -666,23 +665,22 @@ The values below are illustrative; agent strings are shown with line breaks for 
     },
     {
       "agent": "Responder",
-      "content": "Summary: This wallet should be treated as fraud because TabICL assigns a fraud probability of 0.73 (model.verdict, model.fraud_probability).
+      "content": "Summary: This wallet should be treated as clean because TabICL assigns a fraud probability of 0.4887, below the 0.5 threshold (model.verdict, model.fraud_probability).
  GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols
   (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols).
- The model result is authoritative here: the wallet has little observed activity in the supplied window,
- so the score reflects limited activity rather than a reason to question the verdict."
+ The ML verdict is authoritative here and matches the external checks."
     }
   ],
   "evidence": [
     {
       "id": "model.verdict",
-      "claim": "Verdict: fraud.",
+      "claim": "Verdict: clean.",
       "source": "Model",
       "detail": "model: tabicl-v2"
     },
     {
       "id": "model.fraud_probability",
-      "claim": "Fraud probability: 0.73.",
+      "claim": "Fraud probability: 0.4887.",
       "source": "Model",
       "detail": "model: tabicl-v2"
     },
@@ -777,10 +775,9 @@ The values below are illustrative; agent strings are shown with line breaks for 
 Rendered `Responder.content`:
 
 ```text
-Summary: This wallet should be treated as fraud because TabICL assigns a fraud probability of 0.73 (model.verdict, model.fraud_probability).
+Summary: This wallet should be treated as clean because TabICL assigns a fraud probability of 0.4887, below the 0.5 threshold (model.verdict, model.fraud_probability).
 GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regular, 100 internal, and 100 token transactions across 110 counterparties and 27 token symbols
- (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols). The model result is authoritative here: the wallet has little observed activity in the supplied
- window, so the score reflects limited activity rather than a reason to question the verdict.
+ (etherscan.transaction_counts, etherscan.counterparties, etherscan.token_symbols). The ML verdict is authoritative here and matches the external checks.
 ```
 
 ### curl
@@ -788,7 +785,7 @@ GoPlus reports no fraud flags (goplus.zero_checks), and Etherscan shows 100 regu
 ```bash
 curl -X POST http://127.0.0.1:5000/ask \
   -H "Content-Type: application/json" \
-  -d '{"address":"0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045","tx_in_count":100,"eth_in":64709.4112,"distinct_in_counterparties":110,"first_in_ts":"2015-09-28","last_in_ts":"2023-03-07","approval_events":41,"distinct_token_contracts":27,"user_request":"Summarize activity and counterparties for this wallet."}'
+  -d '{"address":"0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045","tx_in_count":100,"eth_in":64709.4112,"distinct_in_counterparties":110,"first_in_ts":"2015-09-28","last_in_ts":"2023-03-07","approval_events":0,"distinct_token_contracts":27,"user_request":"Summarize activity and counterparties for this wallet."}'
 ```
 
 ## TypeScript service contract
