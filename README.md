@@ -444,6 +444,153 @@ Next checks: inspect the phishing reports and the largest counterparties before 
 
 `prediction` is the same object as the `/analyze` response. `goplus_result` is the raw flat GoPlus map with string values. `evidence` is produced by the agents service.
 
+### Clean-wallet example: GoPlus passes, TabICL computes risk score
+
+The values below are illustrative.
+
+#### Request
+
+```json
+{
+  "address": "0x0000000000000000000000000000000000000000",
+  "tx_in_count": 214,
+  "eth_in": 3.87,
+  "distinct_in_counterparties": 186,
+  "first_in_ts": "2025-03-02",
+  "last_in_ts": "2025-09-18",
+  "approval_events": 41,
+  "distinct_token_contracts": 12
+}
+```
+
+#### Response
+
+```json
+{
+  "address": "0x0000000000000000000000000000000000000000",
+  "prediction": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "fraud_probability": 0.73,
+    "verdict": "fraud",
+    "model": "tabicl-v2",
+    "red_flag": false,
+    "red_flags": [],
+    "reason": null
+  },
+  "agents": [
+    {
+      "agent": "TxAnalyst",
+      "content": "No dated Etherscan activity was found for this wallet."
+    },
+    {
+      "agent": "Responder",
+      "content": "Summary: GoPlus does not flag this wallet, but TabICL assigns a fraud probability of 0.73, so the prediction is fraud (model.verdict, model.fraud_probability).\nSupporting evidence: GoPlus reports no flags for the supplied checks (goplus.zero_checks), and no dated Etherscan activity was found (etherscan.activity_period).\nContradicting or missing evidence: there is no GoPlus red flag and no Etherscan history to confirm counterparties or token activity, so the score is based on supplied features (model.red_flags, etherscan.transaction_counts).\nNext checks: review the supplied transaction counts and verify the address in a block explorer before acting on the score."
+    }
+  ],
+  "evidence": [
+    {
+      "id": "model.verdict",
+      "claim": "Verdict: fraud.",
+      "source": "Model",
+      "detail": "model: tabicl-v2"
+    },
+    {
+      "id": "model.fraud_probability",
+      "claim": "Fraud probability: 0.73.",
+      "source": "Model",
+      "detail": "model: tabicl-v2"
+    },
+    {
+      "id": "model.red_flags",
+      "claim": "No red flags were detected.",
+      "source": "Model",
+      "detail": "model: tabicl-v2"
+    },
+    {
+      "id": "goplus.zero_checks",
+      "claim": "No GoPlus flags for these checks: cybercrime, money_laundering, number_of_malicious_contracts_created, gas_abuse, financial_crime, darkweb_transactions, reinit, contract_address, fake_kyc, fake_standard_interface, stealing_attack, blackmail_activities, sanctioned, malicious_mining_activities, mixer, fake_token, honeypot_related_address, blacklist_doubt, phishing_activities.",
+      "source": "GoPlus",
+      "detail": "Raw address security result from GoPlus."
+    },
+    {
+      "id": "etherscan.activity_period",
+      "claim": "No dated Etherscan activity was found.",
+      "source": "Etherscan data",
+      "detail": "Timestamps from txlist/tokentx/txlistinternal, chain 1."
+    },
+    {
+      "id": "etherscan.transaction_counts",
+      "claim": "0 regular transactions, 0 internal transactions, and 0 token transactions.",
+      "source": "Etherscan data",
+      "detail": "Counted by our code from txlist/txlistinternal/tokentx."
+    },
+    {
+      "id": "etherscan.counterparties",
+      "claim": "0 distinct counterparties.",
+      "source": "Etherscan data",
+      "detail": "Unique from/to addresses counted by our code."
+    },
+    {
+      "id": "etherscan.token_symbols",
+      "claim": "0 distinct token symbols.",
+      "source": "Etherscan data",
+      "detail": "Unique tokenSymbol values counted by our code from tokentx."
+    },
+    {
+      "id": "etherscan.largest_eth",
+      "claim": "Largest ETH transaction: 0.",
+      "source": "Etherscan data",
+      "detail": "wei converted to ETH by our code from txlist/txlistinternal."
+    },
+    {
+      "id": "etherscan.sent_received_ratio",
+      "claim": "Received ETH is zero, so the sent/received ratio is unavailable.",
+      "source": "Etherscan data",
+      "detail": "Sent and received ETH counted by our code from normal and internal transactions."
+    },
+    {
+      "id": "etherscan.burst_gap",
+      "claim": "No inflow burst followed by an outflow was found.",
+      "source": "Etherscan data",
+      "detail": "Burst = most inflows inside a 10-minute window; gap to the next outflow counted by our code."
+    }
+  ],
+  "goplus_result": {
+    "blacklist_doubt": "0",
+    "blackmail_activities": "0",
+    "contract_address": "0",
+    "cybercrime": "0",
+    "darkweb_transactions": "0",
+    "data_source": "GoPlus",
+    "fake_kyc": "0",
+    "fake_standard_interface": "0",
+    "fake_token": "0",
+    "financial_crime": "0",
+    "gas_abuse": "0",
+    "honeypot_related_address": "0",
+    "malicious_mining_activities": "0",
+    "mixer": "0",
+    "money_laundering": "0",
+    "number_of_malicious_contracts_created": "0",
+    "phishing_activities": "0",
+    "reinit": "0",
+    "sanctioned": "0",
+    "stealing_attack": "0"
+  }
+}
+```
+
+Rendered `Responder.content`:
+
+```text
+Summary: GoPlus does not flag this wallet, but TabICL assigns a fraud probability of 0.73, so the prediction is fraud (model.verdict, model.fraud_probability).
+Supporting evidence: GoPlus reports no flags for the supplied checks (goplus.zero_checks), and no dated Etherscan activity was found (etherscan.activity_period).
+Contradicting or missing evidence: there is no GoPlus red flag and no Etherscan history to confirm counterparties or token activity, so the score is based on supplied features (model.red_flags, etherscan.transaction_counts).
+Next checks: review the supplied transaction counts and verify the address in a block explorer before acting on the score.
+```
+
+In this example `red_flag` is `false`, `fraud_probability` is populated by TabICL, and `model` is `tabicl-v2`. In the previous example GoPlus short-circuited the pipeline and `fraud_probability` stayed `null`.
+
 ### curl
 
 ```bash
