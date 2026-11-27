@@ -294,9 +294,9 @@ Same JSON as `/analyze`.
 
 ```json
 {
-  "address": "0x...",
+  "address": "0x6D8c070338eC3d297f1D0ECEEA296bd7E13a32b9",
   "prediction": {
-    "address": "0x...",
+    "address": "0x6D8c070338eC3d297f1D0ECEEA296bd7E13a32b9",
     "fraud_probability": null,
     "verdict": "scam",
     "model": "goplus",
@@ -305,13 +305,43 @@ Same JSON as `/analyze`.
     "reason": "GoPlus: blacklist_doubt, phishing_activities"
   },
   "agents": [
-    {"agent": "TxAnalyst", "content": "..."},
-    {"agent": "Responder", "content": "..."}
+    {
+      "agent": "TxAnalyst",
+      "content": "Etherscan data for this wallet shows first activity on 2015-09-28 and last activity on 2023-03-07. There are 214 regular transactions, 9 internal transactions, and 41 token transactions across 186 distinct counterparties and 12 token symbols. The largest ETH transaction is 3.87 ETH, and 61.2% of received ETH was sent out. No inflow burst followed by an outflow was found."
+    },
+    {
+      "agent": "Responder",
+      "content": "Summary: GoPlus flags this wallet as scam because of blacklist_doubt and phishing_activities; the ML model was not called (model.verdict, model.red_flags). Supporting evidence: the two GoPlus flags are explicit (goplus.blacklist_doubt, goplus.phishing_activities), and Etherscan shows a long-lived address with 186 counterparties and 12 token symbols (etherscan.counterparties, etherscan.token_symbols). Contradicting or missing evidence: GoPlus reports no cybercrime, money laundering, darkweb, sanction, mixer, or malicious contract creation flags (goplus.zero_checks), and no inflow burst followed by an outflow was found (etherscan.burst_gap). Next checks: inspect the phishing reports and the largest counterparties before treating this address as trusted."
+    }
   ],
   "evidence": [
     {
+      "id": "model.verdict",
+      "claim": "Verdict: scam.",
+      "source": "Model",
+      "detail": "model: goplus"
+    },
+    {
+      "id": "model.red_flags",
+      "claim": "Red flags: blacklist_doubt, phishing_activities.",
+      "source": "Model",
+      "detail": "GoPlus: blacklist_doubt, phishing_activities"
+    },
+    {
+      "id": "goplus.blacklist_doubt",
+      "claim": "GoPlus blacklist_doubt: 1.",
+      "source": "GoPlus",
+      "detail": "Raw address security result from GoPlus."
+    },
+    {
       "id": "goplus.phishing_activities",
       "claim": "GoPlus phishing_activities: 1.",
+      "source": "GoPlus",
+      "detail": "Raw address security result from GoPlus."
+    },
+    {
+      "id": "goplus.zero_checks",
+      "claim": "No GoPlus flags for these checks: blackmail_activities, contract_address, cybercrime, darkweb_transactions, fake_kyc, fake_standard_interface, fake_token, financial_crime, gas_abuse, honeypot_related_address, malicious_mining_activities, mixer, money_laundering, number_of_malicious_contracts_created, reinit, sanctioned, stealing_attack.",
       "source": "GoPlus",
       "detail": "Raw address security result from GoPlus."
     },
@@ -320,12 +350,65 @@ Same JSON as `/analyze`.
       "claim": "First activity on 2015-09-28, last activity on 2023-03-07.",
       "source": "Etherscan data",
       "detail": "Timestamps from txlist/tokentx/txlistinternal, chain 1."
+    },
+    {
+      "id": "etherscan.transaction_counts",
+      "claim": "214 regular transactions, 9 internal transactions, and 41 token transactions.",
+      "source": "Etherscan data",
+      "detail": "Counted by our code from txlist/txlistinternal/tokentx."
+    },
+    {
+      "id": "etherscan.counterparties",
+      "claim": "186 distinct counterparties.",
+      "source": "Etherscan data",
+      "detail": "Unique from/to addresses counted by our code."
+    },
+    {
+      "id": "etherscan.token_symbols",
+      "claim": "12 distinct token symbols.",
+      "source": "Etherscan data",
+      "detail": "Unique tokenSymbol values counted by our code from tokentx."
+    },
+    {
+      "id": "etherscan.largest_eth",
+      "claim": "Largest ETH transaction: 3.87.",
+      "source": "Etherscan data",
+      "detail": "wei converted to ETH by our code from txlist/txlistinternal."
+    },
+    {
+      "id": "etherscan.sent_received_ratio",
+      "claim": "Sent 61.2% of received ETH.",
+      "source": "Etherscan data",
+      "detail": "Sent and received ETH counted by our code from normal and internal transactions."
+    },
+    {
+      "id": "etherscan.burst_gap",
+      "claim": "No inflow burst followed by an outflow was found.",
+      "source": "Etherscan data",
+      "detail": "Burst = most inflows inside a 10-minute window; gap to the next outflow counted by our code."
     }
   ],
   "goplus_result": {
-    "phishing_activities": "1",
     "blacklist_doubt": "1",
-    "contract_address": "0"
+    "blackmail_activities": "0",
+    "contract_address": "0",
+    "cybercrime": "0",
+    "darkweb_transactions": "0",
+    "data_source": "GoPlus",
+    "fake_kyc": "0",
+    "fake_standard_interface": "0",
+    "fake_token": "0",
+    "financial_crime": "0",
+    "gas_abuse": "0",
+    "honeypot_related_address": "0",
+    "malicious_mining_activities": "0",
+    "mixer": "0",
+    "money_laundering": "0",
+    "number_of_malicious_contracts_created": "0",
+    "phishing_activities": "1",
+    "reinit": "0",
+    "sanctioned": "0",
+    "stealing_attack": "0"
   }
 }
 ```
@@ -365,6 +448,125 @@ Same as `/analyze/agents`, but the client supplies the question. This is the onl
 ### Response
 
 Same shape as `/analyze/agents`.
+
+### Full response example
+
+The values below are illustrative. The structure is the exact JSON returned to a Python API client.
+
+```json
+{
+  "address": "0x0000000000000000000000000000000000000000",
+  "prediction": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "fraud_probability": 0.42,
+    "verdict": "clean",
+    "model": "tabicl-v2",
+    "red_flag": false,
+    "red_flags": [],
+    "reason": null
+  },
+  "agents": [
+    {
+      "agent": "TxAnalyst",
+      "content": "No dated Etherscan activity was found for this wallet."
+    },
+    {
+      "agent": "Responder",
+      "content": "Summary: The ML model classifies this wallet as clean with a fraud probability of 0.42 (model.verdict, model.fraud_probability). Supporting evidence: GoPlus reports no flags for the supplied checks (goplus.zero_checks), and no dated Etherscan activity was found (etherscan.activity_period). Contradicting or missing evidence: there is no transaction history to confirm counterparties or token activity, so the answer is limited to the supplied features and GoPlus result. Next checks: verify the address with a block explorer or provide an address with transaction history."
+    }
+  ],
+  "evidence": [
+    {
+      "id": "model.verdict",
+      "claim": "Verdict: clean.",
+      "source": "Model",
+      "detail": "model: tabicl-v2"
+    },
+    {
+      "id": "model.fraud_probability",
+      "claim": "Fraud probability: 0.42.",
+      "source": "Model",
+      "detail": "model: tabicl-v2"
+    },
+    {
+      "id": "model.red_flags",
+      "claim": "No red flags were detected.",
+      "source": "Model",
+      "detail": "model: tabicl-v2"
+    },
+    {
+      "id": "goplus.zero_checks",
+      "claim": "No GoPlus flags for these checks: cybercrime, money_laundering, number_of_malicious_contracts_created, gas_abuse, financial_crime, darkweb_transactions, reinit, contract_address, fake_kyc, fake_standard_interface, stealing_attack, blackmail_activities, sanctioned, malicious_mining_activities, mixer, fake_token, honeypot_related_address.",
+      "source": "GoPlus",
+      "detail": "Raw address security result from GoPlus."
+    },
+    {
+      "id": "etherscan.activity_period",
+      "claim": "No dated Etherscan activity was found.",
+      "source": "Etherscan data",
+      "detail": "Timestamps from txlist/tokentx/txlistinternal, chain 1."
+    },
+    {
+      "id": "etherscan.transaction_counts",
+      "claim": "0 regular transactions, 0 internal transactions, and 0 token transactions.",
+      "source": "Etherscan data",
+      "detail": "Counted by our code from txlist/txlistinternal/tokentx."
+    },
+    {
+      "id": "etherscan.counterparties",
+      "claim": "0 distinct counterparties.",
+      "source": "Etherscan data",
+      "detail": "Unique from/to addresses counted by our code."
+    },
+    {
+      "id": "etherscan.token_symbols",
+      "claim": "0 distinct token symbols.",
+      "source": "Etherscan data",
+      "detail": "Unique tokenSymbol values counted by our code from tokentx."
+    },
+    {
+      "id": "etherscan.largest_eth",
+      "claim": "Largest ETH transaction: 0.",
+      "source": "Etherscan data",
+      "detail": "wei converted to ETH by our code from txlist/txlistinternal."
+    },
+    {
+      "id": "etherscan.sent_received_ratio",
+      "claim": "Received ETH is zero, so the sent/received ratio is unavailable.",
+      "source": "Etherscan data",
+      "detail": "Sent and received ETH counted by our code from normal and internal transactions."
+    },
+    {
+      "id": "etherscan.burst_gap",
+      "claim": "No inflow burst followed by an outflow was found.",
+      "source": "Etherscan data",
+      "detail": "Burst = most inflows inside a 10-minute window; gap to the next outflow counted by our code."
+    }
+  ],
+  "goplus_result": {
+    "blacklist_doubt": "0",
+    "blackmail_activities": "0",
+    "contract_address": "0",
+    "cybercrime": "0",
+    "darkweb_transactions": "0",
+    "data_source": "GoPlus",
+    "fake_kyc": "0",
+    "fake_standard_interface": "0",
+    "fake_token": "0",
+    "financial_crime": "0",
+    "gas_abuse": "0",
+    "honeypot_related_address": "0",
+    "malicious_mining_activities": "0",
+    "mixer": "0",
+    "money_laundering": "0",
+    "number_of_malicious_contracts_created": "0",
+    "phishing_activities": "0",
+    "reinit": "0",
+    "sanctioned": "0",
+    "stealing_attack": "0"
+  }
+}
+```
 
 ### curl
 
